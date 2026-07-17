@@ -3,8 +3,11 @@ const { decryptSecret } = require("./crypto");
 const { recordProvisionedUser } = require("./quota");
 const { TargetVps } = require("../models");
 
+// tiktok-bisnis namespaces its own API under /iniq/api/... (app.js's
+// ROOT_APP_PATH) to avoid clashing with hosted child-project routes at the
+// same /api path — a bare /api/internal/... request 404s there.
 function endpointUrl(targetVps, path) {
-  return `${String(targetVps.base_url).replace(/\/+$/, "")}${path}`;
+  return `${String(targetVps.base_url).replace(/\/+$/, "")}/iniq${path}`;
 }
 
 async function provisionPaidUser(targetVps, { referenceId, buyer, remotePackageId, amount, landingOrderId }) {

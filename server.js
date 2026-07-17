@@ -14,6 +14,10 @@ const errorHandler = require("./src/middleware/errorHandler");
 const { reconcileUserCounts } = require("./src/jobs/reconcileUserCounts");
 
 const app = express();
+// Runs behind nginx, which sets X-Forwarded-For — without this,
+// express-rate-limit (used on the checkout endpoint) throws
+// ERR_ERL_UNEXPECTED_X_FORWARDED_FOR on every request.
+app.set("trust proxy", 1);
 
 app.use(cors());
 app.use(express.json());
