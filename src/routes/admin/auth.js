@@ -1,6 +1,7 @@
 const express = require("express");
 const { AdminUser } = require("../../models");
-const { verifyPassword, issueToken } = require("../../lib/auth");
+const { verifyPassword, issueToken, hashPassword } = require("../../lib/auth");
+const authenticateAdmin = require("../../middleware/authenticateAdmin");
 
 const router = express.Router();
 
@@ -21,6 +22,31 @@ router.post("/login", async (req, res, next) => {
       token: issueToken(admin),
       admin: { id: admin.id, username: admin.username, role: admin.role },
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.put("/change-password", authenticateAdmin, async (req, res, next) => {
+  try {
+    const currentPassword = String(req.body?.current_password || "");
+    const newPassword = String(req.body?.new_password || "");
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "Password lama dan password baru wajib diisi." });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: "Password baru minimal 8 karakter." });
+    }
+
+    const admin = await AdminUser.findByPk(req.admin.id);
+    if (!admin || !(await verifyPassword(currentPassword, admin.password_hash))) {
+      return res.status(401).json({ message: "Password lama tidak cocok." });
+    }
+
+    admin.password_hash = await hashPassword(newPassword);
+    await admin.save();
+
+    res.json({ success: true, message: "Password berhasil diubah." });
   } catch (e) {
     next(e);
   }

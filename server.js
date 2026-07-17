@@ -2,7 +2,8 @@ const env = require("./src/config/env");
 const express = require("express");
 const path = require("path");
 const cors = require("cors");
-const { sequelize } = require("./src/models");
+const { sequelize, AdminUser } = require("./src/models");
+const { hashPassword } = require("./src/lib/auth");
 const publicRoutes = require("./src/routes/public");
 const paymentRoutes = require("./src/routes/payments");
 const adminAuthRoutes = require("./src/routes/admin/auth");
@@ -27,9 +28,30 @@ app.use("/api/admin/orders", adminOrdersRoutes);
 
 app.use(errorHandler);
 
+async function ensureDefaultAdmin() {
+  const existingCount = await AdminUser.count();
+  if (existingCount > 0) return;
+
+  const username = process.env.DEFAULT_ADMIN_USERNAME || "admin";
+  const password = process.env.DEFAULT_ADMIN_PASSWORD || "06081999";
+  await AdminUser.create({
+    username,
+    password_hash: await hashPassword(password),
+    role: "superadmin",
+  });
+  console.log(
+    `[setup] Belum ada akun admin — dibuat otomatis: username="${username}" password="${password}". Segera ganti password lewat menu Akun di CMS.`
+  );
+}
+
 async function start() {
   await sequelize.authenticate();
   console.log(`[db] connected to ${env.DB_NAME}@${env.DB_HOST}`);
+
+  await sequelize.sync();
+  console.log("[db] schema sync selesai (tabel dibuat otomatis jika belum ada)");
+
+  await ensureDefaultAdmin();
 
   app.listen(env.PORT, () => {
     console.log(`[server] tiktok-landing-gateway listening on port ${env.PORT}`);

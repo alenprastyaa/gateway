@@ -78,6 +78,7 @@
       <button data-target="section-paket" class="nav-btn block w-full rounded-lg px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 transition">Paket</button>
       <button data-target="section-mapping" class="nav-btn block w-full rounded-lg px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 transition">Sambungan</button>
       <button data-target="section-orders" class="nav-btn block w-full rounded-lg px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 transition">Pendaftaran</button>
+      <button data-target="section-akun" class="nav-btn block w-full rounded-lg px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 transition">Akun</button>
     </nav>
 
     <div class="px-3 pb-6">
@@ -305,6 +306,29 @@
         </div>
       </section>
 
+      <!-- Akun -->
+      <section id="section-akun" class="section-panel" style="display:none">
+        <p class="text-sm text-slate-900">Ganti password akun admin yang sedang dipakai untuk login.</p>
+
+        <form id="password-form" class="mt-6 max-w-sm space-y-4 rounded-xl border border-slate-200 p-6">
+          <div>
+            <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Password lama</label>
+            <input type="password" id="current-password" required class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Password baru</label>
+            <p class="mb-1.5 text-xs text-slate-900">Minimal 8 karakter.</p>
+            <input type="password" id="new-password" required class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Ulangi password baru</label>
+            <input type="password" id="confirm-password" required class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" />
+          </div>
+          <button type="submit" class="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800">Simpan Password Baru</button>
+          <div id="password-message" class="min-h-[18px] text-sm font-semibold"></div>
+        </form>
+      </section>
+
       <div id="message" class="fixed bottom-6 right-6 max-w-sm rounded-lg border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600 shadow-lg" style="display:none"></div>
     </main>
   </div>
@@ -321,6 +345,7 @@ const PAGE_TITLES = {
   "section-paket": "Paket",
   "section-mapping": "Sambungan",
   "section-orders": "Pendaftaran",
+  "section-akun": "Akun",
 };
 
 function authHeaders() {
@@ -700,6 +725,38 @@ async function loadOrders() {
     });
   });
 }
+
+// --- Akun / change password ---
+
+document.getElementById("password-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msgEl = document.getElementById("password-message");
+  msgEl.textContent = "";
+  msgEl.classList.remove("text-red-600", "text-emerald-600");
+
+  const currentPassword = document.getElementById("current-password").value;
+  const newPassword = document.getElementById("new-password").value;
+  const confirmPassword = document.getElementById("confirm-password").value;
+
+  if (newPassword !== confirmPassword) {
+    msgEl.textContent = "Password baru dan konfirmasi tidak sama.";
+    msgEl.classList.add("text-red-600");
+    return;
+  }
+
+  try {
+    const data = await api("/api/admin/change-password", {
+      method: "PUT",
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    });
+    msgEl.textContent = data.message || "Password berhasil diubah.";
+    msgEl.classList.add("text-emerald-600");
+    document.getElementById("password-form").reset();
+  } catch (err) {
+    msgEl.textContent = err.message;
+    msgEl.classList.add("text-red-600");
+  }
+});
 
 async function showApp() {
   document.getElementById("login-box").style.display = "none";
