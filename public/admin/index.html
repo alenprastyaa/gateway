@@ -1,0 +1,717 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bitwize — Admin Gateway</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@500&display=swap"
+  rel="stylesheet"
+/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['"Plus Jakarta Sans"', "ui-sans-serif", "system-ui", "sans-serif"],
+          mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
+        },
+      },
+    },
+  };
+</script>
+<style>
+  body { background-color: #ffffff; }
+  ::placeholder { color: #a3a9b4; }
+  #sidebar { transition: transform 0.18s ease; }
+  @media (max-width: 1023px) {
+    #sidebar { position: fixed; inset: 0 auto 0 0; transform: translateX(-100%); z-index: 50; }
+    #sidebar.open { transform: translateX(0); }
+  }
+  /* Custom instead of Tailwind's hover: utility so a light hover background
+     never overrides the dark "active" state (that combo rendered as
+     near-invisible white-on-light-gray text). */
+  .nav-btn:hover { background-color: #f1f5f9; }
+  .nav-btn.bg-slate-900:hover { background-color: #1e293b; }
+</style>
+</head>
+<body class="min-h-screen font-sans font-medium text-slate-900 antialiased">
+
+<!-- ============ LOGIN ============ -->
+<div id="login-box" class="flex min-h-screen items-center justify-center bg-slate-50 px-5">
+  <div class="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+    <div class="text-lg font-extrabold tracking-tight text-slate-900">BITWIZE</div>
+    <p class="mt-1 text-sm text-slate-900">Masuk ke panel admin gateway.</p>
+
+    <div class="mt-7 space-y-4">
+      <div>
+        <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Username</label>
+        <input type="text" id="login-username" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-900 focus:ring-1 focus:ring-slate-900" />
+      </div>
+      <div>
+        <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Password</label>
+        <input type="password" id="login-password" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-900 focus:ring-1 focus:ring-slate-900" />
+      </div>
+      <button id="login-btn" class="w-full rounded-lg bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800">Masuk</button>
+      <div id="login-message" class="min-h-[18px] text-sm font-semibold text-red-600"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app" style="display:none" class="flex min-h-screen">
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="flex w-64 shrink-0 flex-col border-r border-slate-200 bg-white">
+    <div class="px-6 py-6">
+      <div class="text-base font-extrabold tracking-tight text-slate-900">BITWIZE</div>
+      <div class="text-xs font-semibold text-slate-900">Admin Gateway</div>
+    </div>
+
+    <nav class="flex-1 space-y-0.5 px-3">
+      <button data-target="section-ringkasan" class="nav-btn block w-full rounded-lg px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 transition">Ringkasan</button>
+      <button data-target="section-server" class="nav-btn block w-full rounded-lg px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 transition">Server</button>
+      <button data-target="section-paket" class="nav-btn block w-full rounded-lg px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 transition">Paket</button>
+      <button data-target="section-mapping" class="nav-btn block w-full rounded-lg px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 transition">Sambungan</button>
+      <button data-target="section-orders" class="nav-btn block w-full rounded-lg px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 transition">Pendaftaran</button>
+    </nav>
+
+    <div class="px-3 pb-6">
+      <button id="logout-btn" class="block w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm font-bold text-slate-900 transition hover:border-slate-300 hover:text-slate-900">Keluar</button>
+    </div>
+  </aside>
+
+  <div id="sidebar-overlay" class="fixed inset-0 z-40 hidden bg-slate-900/40 lg:hidden"></div>
+
+  <!-- Main -->
+  <div class="min-w-0 flex-1">
+    <header class="flex items-center gap-3 border-b border-slate-200 px-6 py-5 lg:px-10">
+      <button id="menu-toggle" class="rounded-lg border border-slate-200 p-2 text-slate-900 lg:hidden">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
+      </button>
+      <h1 id="page-title" class="text-xl font-extrabold tracking-tight text-slate-900">Ringkasan</h1>
+    </header>
+
+    <main class="max-w-3xl px-6 py-10 lg:px-10">
+
+      <!-- Ringkasan -->
+      <section id="section-ringkasan" class="section-panel">
+        <p class="text-sm leading-relaxed text-slate-900">
+          Sistem ini otomatis membuatkan akun begitu ada yang bayar di landing page. Setup-nya 4 langkah, urut dari kiri.
+        </p>
+
+        <ol class="mt-8 space-y-5">
+          <li class="flex gap-4">
+            <span class="mt-0.5 text-sm font-extrabold text-slate-900">01</span>
+            <div>
+              <p class="text-sm font-bold text-slate-900">Tambahkan server</p>
+              <p class="mt-0.5 text-sm text-slate-900">Server tempat aplikasi pelanggan benar-benar dijalankan.</p>
+            </div>
+          </li>
+          <li class="flex gap-4">
+            <span class="mt-0.5 text-sm font-extrabold text-slate-900">02</span>
+            <div>
+              <p class="text-sm font-bold text-slate-900">Tambahkan paket</p>
+              <p class="mt-0.5 text-sm text-slate-900">Paket harga yang tampil di landing page.</p>
+            </div>
+          </li>
+          <li class="flex gap-4">
+            <span class="mt-0.5 text-sm font-extrabold text-slate-900">03</span>
+            <div>
+              <p class="text-sm font-bold text-slate-900">Sambungkan paket ke server</p>
+              <p class="mt-0.5 text-sm text-slate-900">Cocokkan ID paket di sini dengan ID paket di server tujuan.</p>
+            </div>
+          </li>
+          <li class="flex gap-4">
+            <span class="mt-0.5 text-sm font-extrabold text-slate-900">04</span>
+            <div>
+              <p class="text-sm font-bold text-slate-900">Aktifkan server</p>
+              <p class="mt-0.5 text-sm text-slate-900">Tandai server mana yang menerima pendaftar baru sekarang.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <!-- Step 1: Server -->
+      <section id="section-server" class="section-panel" style="display:none">
+        <p class="text-sm text-slate-900">Server tempat aplikasi pelanggan berjalan. Minimal satu server harus ada.</p>
+
+        <div class="mt-6 overflow-hidden rounded-xl border border-slate-200">
+          <table class="w-full text-left text-sm">
+            <thead class="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-900">
+              <tr>
+                <th class="px-4 py-3">Nama</th>
+                <th class="px-4 py-3">Alamat</th>
+                <th class="px-4 py-3">Batas</th>
+                <th class="px-4 py-3">Terpakai</th>
+                <th class="px-4 py-3">Status</th>
+                <th class="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody id="vps-table-body" class="divide-y divide-slate-100"></tbody>
+          </table>
+          <div id="vps-empty" class="p-8 text-center text-sm font-semibold text-slate-900" style="display:none">Belum ada server.</div>
+        </div>
+
+        <div class="mt-6 rounded-xl border border-slate-200 p-6">
+          <p id="vps-form-title" class="text-sm font-extrabold text-slate-900">Tambah server</p>
+          <form id="vps-form" class="mt-5 space-y-4">
+            <input type="hidden" id="vps-editing-id" />
+            <div>
+              <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Nama server</label>
+              <input type="text" id="vps-name" placeholder="Server Utama" required class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" />
+            </div>
+            <div>
+              <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Alamat website</label>
+              <input type="text" id="vps-base-url" placeholder="https://appserver.domainanda.com" required class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" />
+            </div>
+            <div>
+              <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Kode rahasia</label>
+              <p class="mb-1.5 text-xs text-slate-900">Harus sama persis dengan <code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">INTERNAL_PROVISION_SECRET</code> di server itu.</p>
+              <input type="text" id="vps-secret" placeholder="Kode rahasia" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" />
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Batas user</label>
+                <input type="number" id="vps-quota" placeholder="Tanpa batas" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" />
+              </div>
+              <div>
+                <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Urutan cadangan</label>
+                <input type="number" id="vps-priority" value="0" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" />
+              </div>
+            </div>
+            <div class="flex gap-2 pt-1">
+              <button type="submit" id="vps-submit-btn" class="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800">Tambah Server</button>
+              <button type="button" id="vps-cancel-btn" style="display:none" class="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-bold text-slate-900 transition hover:border-slate-400">Batal</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Step 2: Packages -->
+      <section id="section-paket" class="section-panel" style="display:none">
+        <p class="text-sm text-slate-900">Paket harga yang tampil dan bisa dibeli di landing page.</p>
+
+        <div class="mt-6 overflow-hidden rounded-xl border border-slate-200">
+          <table class="w-full text-left text-sm">
+            <thead class="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-900">
+              <tr>
+                <th class="px-4 py-3">Paket</th>
+                <th class="px-4 py-3">Daftar</th>
+                <th class="px-4 py-3">Perpanjangan</th>
+                <th class="px-4 py-3">Maks. Project</th>
+                <th class="px-4 py-3">Tampil</th>
+                <th class="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody id="packages-table-body" class="divide-y divide-slate-100"></tbody>
+          </table>
+          <div id="packages-empty" class="p-8 text-center text-sm font-semibold text-slate-900" style="display:none">Belum ada paket.</div>
+        </div>
+
+        <div class="mt-6 rounded-xl border border-slate-200 p-6">
+          <p id="package-form-title" class="text-sm font-extrabold text-slate-900">Tambah paket</p>
+          <form id="package-form" class="mt-5 space-y-4">
+            <input type="hidden" id="package-editing-id" />
+            <div>
+              <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Nama paket</label>
+              <input type="text" id="package-name" placeholder="Paket Basic" required class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" />
+            </div>
+            <div>
+              <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Kode paket (slug)</label>
+              <input type="text" id="package-slug" placeholder="basic" required class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" />
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Harga daftar (Rp)</label>
+                <input type="number" id="package-initial-price" placeholder="150000" required class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" />
+              </div>
+              <div>
+                <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Harga perpanjangan (Rp)</label>
+                <input type="number" id="package-renewal-price" placeholder="100000" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" />
+              </div>
+            </div>
+            <div>
+              <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Maksimal project</label>
+              <input type="number" id="package-max-projects" value="3" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" />
+            </div>
+            <label class="flex items-center gap-2 text-sm font-bold text-slate-900">
+              <input type="checkbox" id="package-is-active" checked class="h-4 w-4 rounded border-slate-300 accent-slate-900" /> Tampilkan di landing page
+            </label>
+            <div class="flex gap-2 pt-1">
+              <button type="submit" id="package-submit-btn" class="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800">Tambah Paket</button>
+              <button type="button" id="package-cancel-btn" style="display:none" class="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-bold text-slate-900 transition hover:border-slate-400">Batal</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Step 3: Mapping -->
+      <section id="section-mapping" class="section-panel" style="display:none">
+        <p class="text-sm text-slate-900">
+          Tiap server punya nomor ID paket sendiri. Sambungkan paket di panel ini ke ID yang sesuai di server tujuan — cek di panel admin paket server tersebut.
+        </p>
+
+        <div class="mt-6 overflow-hidden rounded-xl border border-slate-200">
+          <table class="w-full text-left text-sm">
+            <thead class="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-900">
+              <tr><th class="px-4 py-3">Paket</th><th class="px-4 py-3">Server</th><th class="px-4 py-3">ID di Server</th></tr>
+            </thead>
+            <tbody id="mappings-table-body" class="divide-y divide-slate-100"></tbody>
+          </table>
+          <div id="mappings-empty" class="p-8 text-center text-sm font-semibold text-slate-900" style="display:none">Belum ada sambungan.</div>
+        </div>
+
+        <form id="mapping-form" class="mt-6 space-y-4 rounded-xl border border-slate-200 p-6">
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Paket</label>
+              <select id="mapping-package" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"></select>
+            </div>
+            <div>
+              <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Server</label>
+              <select id="mapping-vps" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"></select>
+            </div>
+          </div>
+          <div>
+            <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Nomor ID paket di server</label>
+            <input type="number" id="mapping-remote-id" required class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" />
+          </div>
+          <button type="submit" class="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800">Simpan</button>
+        </form>
+
+        <div class="mt-6 border-t border-slate-200 pt-6">
+          <p class="text-sm font-extrabold text-slate-900">Langkah terakhir</p>
+          <p class="mt-1 text-sm text-slate-900">Setelah semua paket tersambung, buka menu <b class="text-slate-900">Server</b> dan klik "Jadikan Aktif".</p>
+        </div>
+      </section>
+
+      <!-- Orders -->
+      <section id="section-orders" class="section-panel" style="display:none">
+        <p class="text-sm text-slate-900">Riwayat checkout, status bayar, dan status pembuatan akun.</p>
+
+        <div class="mt-6 overflow-hidden rounded-xl border border-slate-200">
+          <table class="w-full text-left text-sm">
+            <thead class="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-900">
+              <tr><th class="px-4 py-3">Kode</th><th class="px-4 py-3">Pembeli</th><th class="px-4 py-3">Bayar</th><th class="px-4 py-3">Akun</th><th class="px-4 py-3">Server</th><th class="px-4 py-3"></th></tr>
+            </thead>
+            <tbody id="orders-table-body" class="divide-y divide-slate-100"></tbody>
+          </table>
+          <div id="orders-empty" class="p-8 text-center text-sm font-semibold text-slate-900" style="display:none">Belum ada pendaftaran.</div>
+        </div>
+      </section>
+
+      <div id="message" class="fixed bottom-6 right-6 max-w-sm rounded-lg border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600 shadow-lg" style="display:none"></div>
+    </main>
+  </div>
+</div>
+
+<script>
+let token = localStorage.getItem("admin_token") || "";
+let packagesCache = [];
+let vpsCache = [];
+
+const PAGE_TITLES = {
+  "section-ringkasan": "Ringkasan",
+  "section-server": "Server",
+  "section-paket": "Paket",
+  "section-mapping": "Sambungan",
+  "section-orders": "Pendaftaran",
+};
+
+function authHeaders() {
+  return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, { ...opts, headers: { ...authHeaders(), ...(opts.headers || {}) } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || `Permintaan gagal (${res.status})`);
+  return data;
+}
+
+function showMessage(err) {
+  const el = document.getElementById("message");
+  el.textContent = err?.message || String(err);
+  el.style.display = "block";
+  clearTimeout(showMessage._t);
+  showMessage._t = setTimeout(() => (el.style.display = "none"), 5000);
+}
+
+const STATUS_LABELS = {
+  active: "Aktif", full: "Penuh", disabled: "Nonaktif", error: "Error",
+  paid: "Lunas", pending: "Menunggu", expired: "Kedaluwarsa", failed: "Gagal",
+  succeeded: "Berhasil", not_started: "Belum diproses",
+};
+const STATUS_DOTS = {
+  active: "bg-emerald-500", full: "bg-amber-500", disabled: "bg-slate-300", error: "bg-red-500",
+  paid: "bg-emerald-500", pending: "bg-amber-500", expired: "bg-slate-300", failed: "bg-red-500",
+  succeeded: "bg-emerald-500", not_started: "bg-slate-300",
+};
+
+function statusBadge(status) {
+  const dot = STATUS_DOTS[status] || "bg-slate-300";
+  const label = STATUS_LABELS[status] || status;
+  return `<span class="inline-flex items-center gap-1.5 text-xs font-bold text-slate-900"><span class="h-1.5 w-1.5 rounded-full ${dot}"></span>${label}</span>`;
+}
+
+function btnPrimary(label, dataAttrs) {
+  return `<button ${dataAttrs} class="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-slate-800">${label}</button>`;
+}
+function btnSecondary(label, dataAttrs) {
+  return `<button ${dataAttrs} class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-900 transition hover:border-slate-400">${label}</button>`;
+}
+function btnDanger(label, dataAttrs) {
+  return `<button ${dataAttrs} class="rounded-lg px-3 py-1.5 text-xs font-bold text-red-600 transition hover:bg-red-50">${label}</button>`;
+}
+
+// --- Sidebar navigation ---
+
+function selectSection(targetId) {
+  document.querySelectorAll(".section-panel").forEach((el) => (el.style.display = el.id === targetId ? "block" : "none"));
+  document.querySelectorAll(".nav-btn").forEach((btn) => {
+    const active = btn.dataset.target === targetId;
+    btn.classList.toggle("bg-slate-900", active);
+    btn.classList.toggle("text-white", active);
+    btn.classList.toggle("text-slate-900", !active);
+  });
+  document.getElementById("page-title").textContent = PAGE_TITLES[targetId] || "";
+  document.getElementById("sidebar").classList.remove("open");
+  document.getElementById("sidebar-overlay").classList.add("hidden");
+}
+
+document.querySelectorAll(".nav-btn").forEach((btn) => {
+  btn.addEventListener("click", () => selectSection(btn.dataset.target));
+});
+
+document.getElementById("menu-toggle").addEventListener("click", () => {
+  document.getElementById("sidebar").classList.add("open");
+  document.getElementById("sidebar-overlay").classList.remove("hidden");
+});
+document.getElementById("sidebar-overlay").addEventListener("click", () => {
+  document.getElementById("sidebar").classList.remove("open");
+  document.getElementById("sidebar-overlay").classList.add("hidden");
+});
+
+// --- Auth ---
+
+document.getElementById("login-btn").addEventListener("click", async () => {
+  const username = document.getElementById("login-username").value;
+  const password = document.getElementById("login-password").value;
+  try {
+    const data = await api("/api/admin/login", { method: "POST", body: JSON.stringify({ username, password }) });
+    token = data.token;
+    localStorage.setItem("admin_token", token);
+    showApp();
+  } catch (e) {
+    document.getElementById("login-message").textContent = e.message;
+  }
+});
+
+document.getElementById("logout-btn").addEventListener("click", () => {
+  localStorage.removeItem("admin_token");
+  token = "";
+  document.getElementById("app").style.display = "none";
+  document.getElementById("login-box").style.display = "flex";
+});
+
+// --- Step 1: Server (Target VPS) ---
+
+async function loadVps() {
+  const { data } = await api("/api/admin/target-vps");
+  vpsCache = data;
+  const tbody = document.getElementById("vps-table-body");
+  tbody.innerHTML = "";
+  document.getElementById("vps-empty").style.display = data.length ? "none" : "block";
+  data.forEach((v) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="px-4 py-3 font-bold text-slate-900">${v.name}</td>
+      <td class="px-4 py-3 text-slate-900">${v.base_url}</td>
+      <td class="px-4 py-3">${v.quota ?? "Tanpa batas"}</td>
+      <td class="px-4 py-3">${v.current_count}</td>
+      <td class="px-4 py-3">${statusBadge(v.status)}</td>
+      <td class="px-4 py-3">
+        <div class="flex justify-end gap-1.5">
+          ${v.status !== "active" ? btnPrimary("Jadikan Aktif", `data-id="${v.id}" class="activate-btn"`) : ""}
+          ${btnSecondary("Edit", `data-id="${v.id}" class="edit-vps-btn"`)}
+          ${btnDanger("Hapus", `data-id="${v.id}" class="delete-vps-btn"`)}
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  document.querySelectorAll(".activate-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      try {
+        await api(`/api/admin/target-vps/${btn.dataset.id}/activate`, { method: "PATCH" });
+        loadVps();
+      } catch (e) {
+        showMessage(e);
+      }
+    });
+  });
+
+  document.querySelectorAll(".edit-vps-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const v = vpsCache.find((x) => x.id === Number(btn.dataset.id));
+      if (!v) return;
+      document.getElementById("vps-editing-id").value = v.id;
+      document.getElementById("vps-name").value = v.name;
+      document.getElementById("vps-base-url").value = v.base_url;
+      document.getElementById("vps-secret").value = "";
+      document.getElementById("vps-secret").placeholder = "Kosongkan jika tidak diubah";
+      document.getElementById("vps-priority").value = v.priority;
+      document.getElementById("vps-quota").value = v.quota ?? "";
+      document.getElementById("vps-form-title").textContent = `Mengedit ${v.name}`;
+      document.getElementById("vps-submit-btn").textContent = "Simpan Perubahan";
+      document.getElementById("vps-cancel-btn").style.display = "inline-block";
+      document.getElementById("vps-form").scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  });
+
+  document.querySelectorAll(".delete-vps-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Hapus server ini? Sambungan paketnya juga ikut terhapus.")) return;
+      try {
+        await api(`/api/admin/target-vps/${btn.dataset.id}`, { method: "DELETE" });
+        loadVps();
+        loadMappingOptions();
+      } catch (e) {
+        showMessage(e);
+      }
+    });
+  });
+}
+
+function resetVpsForm() {
+  document.getElementById("vps-form").reset();
+  document.getElementById("vps-editing-id").value = "";
+  document.getElementById("vps-secret").placeholder = "Kode rahasia";
+  document.getElementById("vps-form-title").textContent = "Tambah server";
+  document.getElementById("vps-submit-btn").textContent = "Tambah Server";
+  document.getElementById("vps-cancel-btn").style.display = "none";
+}
+
+document.getElementById("vps-cancel-btn").addEventListener("click", resetVpsForm);
+
+document.getElementById("vps-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const editingId = document.getElementById("vps-editing-id").value;
+  const secret = document.getElementById("vps-secret").value;
+  const body = {
+    name: document.getElementById("vps-name").value,
+    base_url: document.getElementById("vps-base-url").value,
+    priority: document.getElementById("vps-priority").value,
+    quota: document.getElementById("vps-quota").value || null,
+  };
+  try {
+    if (editingId) {
+      if (secret) body.internal_secret = secret;
+      await api(`/api/admin/target-vps/${editingId}`, { method: "PUT", body: JSON.stringify(body) });
+    } else {
+      if (!secret) throw new Error("Kode rahasia wajib diisi untuk server baru.");
+      body.internal_secret = secret;
+      await api("/api/admin/target-vps", { method: "POST", body: JSON.stringify(body) });
+    }
+    resetVpsForm();
+    loadVps();
+    loadMappingOptions();
+  } catch (err) {
+    showMessage(err);
+  }
+});
+
+// --- Step 2: Package Plans ---
+
+async function loadPackages() {
+  const { data } = await api("/api/admin/packages");
+  packagesCache = data;
+  const tbody = document.getElementById("packages-table-body");
+  tbody.innerHTML = "";
+  document.getElementById("packages-empty").style.display = data.length ? "none" : "block";
+  data.forEach((p) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="px-4 py-3 font-bold text-slate-900">${p.name}</td>
+      <td class="px-4 py-3">Rp ${Number(p.initial_price).toLocaleString("id-ID")}</td>
+      <td class="px-4 py-3">Rp ${Number(p.renewal_price).toLocaleString("id-ID")}</td>
+      <td class="px-4 py-3">${p.max_projects}</td>
+      <td class="px-4 py-3">${p.is_active ? statusBadge("active") : statusBadge("disabled")}</td>
+      <td class="px-4 py-3">
+        <div class="flex justify-end gap-1.5">
+          ${btnSecondary("Edit", `data-id="${p.id}" class="edit-package-btn"`)}
+          ${btnDanger("Hapus", `data-id="${p.id}" class="delete-package-btn"`)}
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  document.querySelectorAll(".edit-package-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const p = packagesCache.find((x) => x.id === Number(btn.dataset.id));
+      if (!p) return;
+      document.getElementById("package-editing-id").value = p.id;
+      document.getElementById("package-name").value = p.name;
+      document.getElementById("package-slug").value = p.slug;
+      document.getElementById("package-initial-price").value = p.initial_price;
+      document.getElementById("package-renewal-price").value = p.renewal_price;
+      document.getElementById("package-max-projects").value = p.max_projects;
+      document.getElementById("package-is-active").checked = !!p.is_active;
+      document.getElementById("package-form-title").textContent = `Mengedit ${p.name}`;
+      document.getElementById("package-submit-btn").textContent = "Simpan Perubahan";
+      document.getElementById("package-cancel-btn").style.display = "inline-block";
+      document.getElementById("package-form").scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  });
+
+  document.querySelectorAll(".delete-package-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Hapus paket ini? Sambungan ke server untuk paket ini juga ikut terhapus.")) return;
+      try {
+        await api(`/api/admin/packages/${btn.dataset.id}`, { method: "DELETE" });
+        loadPackages();
+        loadMappingOptions();
+        loadMappings();
+      } catch (e) {
+        showMessage(e);
+      }
+    });
+  });
+
+  loadMappingOptions();
+}
+
+function resetPackageForm() {
+  document.getElementById("package-form").reset();
+  document.getElementById("package-editing-id").value = "";
+  document.getElementById("package-is-active").checked = true;
+  document.getElementById("package-form-title").textContent = "Tambah paket";
+  document.getElementById("package-submit-btn").textContent = "Tambah Paket";
+  document.getElementById("package-cancel-btn").style.display = "none";
+}
+
+document.getElementById("package-cancel-btn").addEventListener("click", resetPackageForm);
+
+document.getElementById("package-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const editingId = document.getElementById("package-editing-id").value;
+  const body = {
+    name: document.getElementById("package-name").value,
+    slug: document.getElementById("package-slug").value,
+    initial_price: document.getElementById("package-initial-price").value,
+    renewal_price: document.getElementById("package-renewal-price").value,
+    max_projects: document.getElementById("package-max-projects").value,
+    is_active: document.getElementById("package-is-active").checked,
+  };
+  try {
+    if (editingId) {
+      await api(`/api/admin/packages/${editingId}`, { method: "PUT", body: JSON.stringify(body) });
+    } else {
+      await api("/api/admin/packages", { method: "POST", body: JSON.stringify(body) });
+    }
+    resetPackageForm();
+    loadPackages();
+  } catch (err) {
+    showMessage(err);
+  }
+});
+
+// --- Step 3: Package <-> VPS mapping ---
+
+function loadMappingOptions() {
+  const packageSelect = document.getElementById("mapping-package");
+  const vpsSelect = document.getElementById("mapping-vps");
+  packageSelect.innerHTML = packagesCache.map((p) => `<option value="${p.id}">${p.name}</option>`).join("");
+  vpsSelect.innerHTML = vpsCache.map((v) => `<option value="${v.id}">${v.name}</option>`).join("");
+}
+
+async function loadMappings() {
+  const tbody = document.getElementById("mappings-table-body");
+  tbody.innerHTML = "";
+  let total = 0;
+  for (const plan of packagesCache) {
+    const { data } = await api(`/api/admin/packages/${plan.id}/mappings`);
+    total += data.length;
+    data.forEach((m) => {
+      const vps = vpsCache.find((v) => v.id === m.target_vps_id);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td class="px-4 py-3 font-bold text-slate-900">${plan.name}</td><td class="px-4 py-3 text-slate-900">${vps ? vps.name : m.target_vps_id}</td><td class="px-4 py-3 font-mono text-xs font-medium text-slate-900">${m.remote_package_id}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+  document.getElementById("mappings-empty").style.display = total ? "none" : "block";
+}
+
+document.getElementById("mapping-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const packageId = document.getElementById("mapping-package").value;
+  const vpsId = document.getElementById("mapping-vps").value;
+  const remoteId = document.getElementById("mapping-remote-id").value;
+  if (!packageId || !vpsId) {
+    showMessage({ message: "Tambahkan minimal satu paket dan satu server terlebih dahulu." });
+    return;
+  }
+  try {
+    await api(`/api/admin/packages/${packageId}/mappings/${vpsId}`, {
+      method: "PUT",
+      body: JSON.stringify({ remote_package_id: remoteId }),
+    });
+    document.getElementById("mapping-remote-id").value = "";
+    loadMappings();
+  } catch (err) {
+    showMessage(err);
+  }
+});
+
+// --- Orders ---
+
+async function loadOrders() {
+  const { data } = await api("/api/admin/orders");
+  const tbody = document.getElementById("orders-table-body");
+  tbody.innerHTML = "";
+  document.getElementById("orders-empty").style.display = data.length ? "none" : "block";
+  data.forEach((o) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="px-4 py-3 font-mono text-xs font-medium text-slate-900">${o.reference_id}</td>
+      <td class="px-4 py-3"><div class="font-bold text-slate-900">${o.buyer_name}</div><div class="text-xs text-slate-900">${o.buyer_email}</div></td>
+      <td class="px-4 py-3">${statusBadge(o.status)}</td>
+      <td class="px-4 py-3">${statusBadge(o.provisioning_status)}${o.provisioning_last_error ? `<div class="mt-1 text-xs font-semibold text-red-600">${o.provisioning_last_error}</div>` : ""}</td>
+      <td class="px-4 py-3 text-slate-900">${o.targetVps ? o.targetVps.name : "-"}</td>
+      <td class="px-4 py-3">${o.status === "paid" && o.provisioning_status === "failed" ? btnPrimary("Coba Lagi", `data-id="${o.id}" class="retry-btn"`) : ""}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.querySelectorAll(".retry-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      try {
+        await api(`/api/admin/orders/${btn.dataset.id}/retry-provisioning`, { method: "POST" });
+        loadOrders();
+      } catch (e) {
+        showMessage(e);
+      }
+    });
+  });
+}
+
+async function showApp() {
+  document.getElementById("login-box").style.display = "none";
+  document.getElementById("app").style.display = "flex";
+  selectSection("section-ringkasan");
+  await loadVps();
+  await loadPackages();
+  await loadMappings();
+  await loadOrders();
+}
+
+if (token) showApp();
+</script>
+</body>
+</html>

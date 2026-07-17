@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Bitwize Web Builder — platform berbasis browser untuk membangun landing page dan aplikasi bisnis berbasis Node.js, MySQL, Vue, dan Tailwind CSS."
+    />
+    <title>Bitwize Web Builder — Bangun Aplikasi Node.js dari Browser</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              display: ['"Space Grotesk"', "sans-serif"],
+              sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+              mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
+            },
+            colors: {
+              ink: "#0a0e14",
+              surface: "#10141c",
+              surface2: "#171d27",
+              line: "#232a37",
+              "accent-gold": "#ffb454",
+              "accent-teal": "#5ccfe6",
+              "accent-violet": "#b39df3",
+              "accent-green": "#59d499",
+            },
+            keyframes: {
+              blink: { "0%, 49%": { opacity: 1 }, "50%, 100%": { opacity: 0 } },
+              rise: {
+                "0%": { opacity: 0, transform: "translateY(8px)" },
+                "100%": { opacity: 1, transform: "translateY(0)" },
+              },
+            },
+            animation: {
+              blink: "blink 1.1s steps(1) infinite",
+              rise: "rise .5s ease forwards",
+            },
+          },
+        },
+      };
+    </script>
+
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        background-color: #0a0e14;
+        background-image: linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+        background-size: 44px 44px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .animate-blink,
+        .animate-rise {
+          animation: none !important;
+          opacity: 1 !important;
+        }
+      }
+    </style>
+  </head>
+  <body class="font-sans text-slate-300 antialiased">
+    <!-- ============ HEADER ============ -->
+    <header id="top" class="sticky top-0 z-50 border-b border-line/70 bg-ink/80 backdrop-blur-xl">
+      <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-6">
+        <a href="#top" class="flex items-center gap-3">
+          <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent-gold to-accent-teal font-display text-sm font-bold text-ink">&lt;/&gt;</span>
+          <span class="flex flex-col leading-tight">
+            <span class="font-display text-sm font-semibold text-slate-100 sm:text-base">Bitwize Web Builder</span>
+            <span class="hidden text-xs text-slate-500 sm:block">Workspace untuk landing page &amp; aplikasi bisnis</span>
+          </span>
+        </a>
+
+        <nav class="hidden items-center gap-8 font-mono text-sm text-slate-400 lg:flex">
+          <a href="#fitur" class="transition hover:text-slate-100">fitur</a>
+          <a href="#cara-kerja" class="transition hover:text-slate-100">cara-kerja</a>
+          <a href="#pricing" class="transition hover:text-slate-100">paket</a>
+          <a href="#faq" class="transition hover:text-slate-100">faq</a>
+        </nav>
+
+        <div class="hidden items-center gap-3 lg:flex">
+          <a href="#checkout" class="rounded-full bg-accent-gold px-4 py-2.5 text-sm font-semibold text-ink transition hover:brightness-110">Daftar Sekarang</a>
+        </div>
+
+        <button id="menu-toggle" type="button" class="flex h-10 w-10 items-center justify-center rounded-lg border border-line text-slate-300 lg:hidden" aria-label="Buka menu">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
+        </button>
+      </div>
+
+      <div id="mobile-menu" class="hidden border-t border-line px-5 pb-6 pt-3 lg:hidden">
+        <nav class="flex flex-col gap-1 font-mono text-sm text-slate-400">
+          <a href="#fitur" class="rounded-lg px-2 py-2.5 hover:bg-surface hover:text-slate-100">fitur</a>
+          <a href="#cara-kerja" class="rounded-lg px-2 py-2.5 hover:bg-surface hover:text-slate-100">cara-kerja</a>
+          <a href="#pricing" class="rounded-lg px-2 py-2.5 hover:bg-surface hover:text-slate-100">paket</a>
+          <a href="#faq" class="rounded-lg px-2 py-2.5 hover:bg-surface hover:text-slate-100">faq</a>
+        </nav>
+        <div class="mt-4 flex flex-col gap-3">
+          <a href="#checkout" class="rounded-full bg-accent-gold px-4 py-3 text-center text-sm font-semibold text-ink">Daftar Sekarang</a>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <!-- ============ HERO ============ -->
+      <section class="relative overflow-hidden pb-20 pt-14 sm:pt-20">
+        <div aria-hidden="true" class="pointer-events-none absolute inset-0 -z-10">
+          <div class="absolute -top-24 left-1/4 h-72 w-72 rounded-full bg-accent-gold/10 blur-3xl"></div>
+          <div class="absolute right-0 top-40 h-80 w-80 rounded-full bg-accent-teal/10 blur-3xl"></div>
+        </div>
+
+        <div class="mx-auto grid max-w-7xl gap-12 px-5 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-10">
+          <div>
+            <span class="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-1.5 font-mono text-xs text-accent-gold">
+              <span class="h-1.5 w-1.5 rounded-full bg-accent-gold animate-blink"></span>
+              node.js · mysql · vue · tailwind
+            </span>
+            <h1 class="mt-6 font-display text-4xl font-bold leading-[1.08] text-slate-50 sm:text-5xl lg:text-[3.4rem]">
+              Bangun landing page &amp; aplikasi bisnis, langsung dari browser.
+            </h1>
+            <p class="mt-5 max-w-xl text-base leading-relaxed text-slate-400 sm:text-lg">
+              Kelola project, edit file, jalankan preview, publish hasil, dan atur user dari satu dashboard yang bersih dan mudah dipakai.
+            </p>
+            <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+              <a href="#checkout" class="rounded-full bg-accent-gold px-6 py-3.5 text-center text-sm font-semibold text-ink transition hover:brightness-110">Daftar Sekarang</a>
+              <a href="#cara-kerja" class="rounded-full border border-line px-6 py-3.5 text-center text-sm font-semibold text-slate-200 transition hover:border-slate-500">Lihat Cara Kerja</a>
+            </div>
+            <dl class="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div class="rounded-2xl border border-line bg-surface p-4">
+                <dt class="font-display text-base font-semibold text-slate-100">Dashboard ringkas</dt>
+                <dd class="mt-1 text-sm text-slate-500">Project, user, paket, dan preview dalam satu tempat.</dd>
+              </div>
+              <div class="rounded-2xl border border-line bg-surface p-4">
+                <dt class="font-display text-base font-semibold text-slate-100">Database terpisah</dt>
+                <dd class="mt-1 text-sm text-slate-500">Setiap project aplikasi tetap punya MySQL sendiri.</dd>
+              </div>
+              <div class="rounded-2xl border border-line bg-surface p-4">
+                <dt class="font-display text-base font-semibold text-slate-100">Siap publish</dt>
+                <dd class="mt-1 text-sm text-slate-500">Preview internal dan URL publik aktif dari panel.</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div class="flex flex-col gap-4">
+            <div class="overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl shadow-black/40">
+              <div class="flex items-center gap-2 border-b border-line bg-surface2 px-4 py-3">
+                <span class="h-3 w-3 rounded-full bg-rose-400/70"></span>
+                <span class="h-3 w-3 rounded-full bg-accent-gold/70"></span>
+                <span class="h-3 w-3 rounded-full bg-accent-green/70"></span>
+                <span class="ml-3 font-mono text-xs text-slate-500">bitwize — zsh</span>
+              </div>
+              <div class="p-5 font-mono text-[13px] leading-relaxed">
+                <p class="text-slate-500">$ <span class="text-slate-200">bitwize create landing-toko-kopi</span></p>
+                <p class="opacity-0 text-accent-teal animate-rise" style="animation-delay: 0.3s">✔ Struktur project dibuat</p>
+                <p class="opacity-0 text-accent-teal animate-rise" style="animation-delay: 0.6s">✔ Dependency Node.js terpasang</p>
+                <p class="opacity-0 text-accent-teal animate-rise" style="animation-delay: 0.9s">✔ Database MySQL terhubung</p>
+                <p class="opacity-0 text-accent-violet animate-rise" style="animation-delay: 1.2s">→ Akun aktif otomatis setelah pembayaran</p>
+                <p class="mt-2 opacity-0 text-slate-500 animate-rise" style="animation-delay: 1.5s">
+                  $ <span class="inline-block h-4 w-2 align-middle bg-accent-gold animate-blink"></span>
+                </p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div class="rounded-2xl border border-line bg-surface p-4">
+                <div class="mb-2 flex items-center gap-2 font-mono text-xs text-slate-500">
+                  <svg class="h-3.5 w-3.5 text-accent-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6M9 8h1M5 20h14a2 2 0 002-2V7l-5-5H5a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                  workflow.md
+                </div>
+                <p class="text-sm leading-relaxed text-slate-400">Generate project, edit file, install dependency, lalu publish tanpa pindah halaman.</p>
+              </div>
+              <div class="rounded-2xl border border-line bg-surface p-4">
+                <div class="mb-2 flex items-center gap-2 font-mono text-xs text-slate-500">
+                  <svg class="h-3.5 w-3.5 text-accent-violet" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 14a4 4 0 10-8 0M12 11a3 3 0 100-6 3 3 0 000 6zM3.5 20c0-2.8 2.4-5 5-5M20.5 20c0-2.8-2.4-5-5-5" /></svg>
+                  pembayaran.md
+                </div>
+                <p class="text-sm leading-relaxed text-slate-400">Checkout aman lewat iPaymu, akun langsung aktif otomatis begitu pembayaran dikonfirmasi.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ FEATURES ============ -->
+      <section id="fitur" class="border-t border-line/60 py-20">
+        <div class="mx-auto max-w-7xl px-5 sm:px-6">
+          <div class="max-w-2xl">
+            <span class="font-mono text-xs text-accent-teal">// fitur</span>
+            <h2 class="mt-3 font-display text-3xl font-bold text-slate-50 sm:text-4xl">Yang Anda dapatkan</h2>
+            <p class="mt-3 leading-relaxed text-slate-400">Fokus pada alur kerja inti yang paling sering dipakai untuk membangun dan mengelola project berbasis Node.js.</p>
+          </div>
+
+          <div class="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <article class="rounded-2xl border border-line bg-surface p-6 transition hover:border-slate-600">
+              <div class="flex items-center justify-between">
+                <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-accent-gold/10 text-accent-gold">
+                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4l8 4-8 4-8-4 8-4zM4 12l8 4 8-4M4 16l8 4 8-4" /></svg>
+                </span>
+                <span class="font-mono text-[11px] text-slate-600">project-builder.js</span>
+              </div>
+              <h3 class="mt-5 font-display text-base font-semibold text-slate-100">Project builder</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-400">Buat landing page atau aplikasi baru dengan struktur file yang langsung siap dipakai.</p>
+            </article>
+
+            <article class="rounded-2xl border border-line bg-surface p-6 transition hover:border-slate-600">
+              <div class="flex items-center justify-between">
+                <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-accent-teal/10 text-accent-teal">
+                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l-4 3 4 3M16 9l4 3-4 3M13 6l-2 12" /></svg>
+                </span>
+                <span class="font-mono text-[11px] text-slate-600">browser-ide.js</span>
+              </div>
+              <h3 class="mt-5 font-display text-base font-semibold text-slate-100">IDE browser</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-400">Edit file utama, jalankan project, lihat log, dan simpan perubahan dari dashboard.</p>
+            </article>
+
+            <article class="rounded-2xl border border-line bg-surface p-6 transition hover:border-slate-600">
+              <div class="flex items-center justify-between">
+                <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-accent-violet/10 text-accent-violet">
+                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8" /><path stroke-linecap="round" d="M4 12h16M12 4c2.4 2.3 2.4 13.7 0 16M12 4c-2.4 2.3-2.4 13.7 0 16" /></svg>
+                </span>
+                <span class="font-mono text-[11px] text-slate-600">publish.sh</span>
+              </div>
+              <h3 class="mt-5 font-display text-base font-semibold text-slate-100">Preview dan publish</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-400">Aktifkan preview internal dan URL publik saat project sudah siap diuji atau dipresentasikan.</p>
+            </article>
+
+            <article class="rounded-2xl border border-line bg-surface p-6 transition hover:border-slate-600">
+              <div class="flex items-center justify-between">
+                <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-accent-green/10 text-accent-green">
+                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 14a4 4 0 10-8 0M12 11a3 3 0 100-6 3 3 0 000 6zM3.5 20c0-2.8 2.4-5 5-5M20.5 20c0-2.8-2.4-5-5-5" /></svg>
+                </span>
+                <span class="font-mono text-[11px] text-slate-600">akun.json</span>
+              </div>
+              <h3 class="mt-5 font-display text-base font-semibold text-slate-100">Aktivasi instan</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-400">Begitu pembayaran dikonfirmasi, akun Anda otomatis dibuat dan siap dipakai — tanpa menunggu approval manual.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ HOW IT WORKS ============ -->
+      <section id="cara-kerja" class="border-t border-line/60 py-20">
+        <div class="mx-auto max-w-7xl px-5 sm:px-6">
+          <div class="max-w-2xl">
+            <span class="font-mono text-xs text-accent-teal">// cara kerja</span>
+            <h2 class="mt-3 font-display text-3xl font-bold text-slate-50 sm:text-4xl">Tiga langkah untuk mulai</h2>
+            <p class="mt-3 leading-relaxed text-slate-400">Alurnya dibuat singkat supaya user awam tetap bisa mulai tanpa banyak penyesuaian teknis.</p>
+          </div>
+
+          <div class="relative mt-12 grid grid-cols-1 gap-10 sm:grid-cols-3 sm:gap-8">
+            <div class="absolute left-0 right-0 top-6 hidden h-px bg-line sm:block" aria-hidden="true"></div>
+
+            <div class="relative">
+              <div class="relative z-10 flex h-12 w-12 items-center justify-center rounded-full border border-accent-gold/40 bg-ink font-display text-lg font-bold text-accent-gold">1</div>
+              <h3 class="mt-5 font-display text-base font-semibold text-slate-100">Pilih paket</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-400">Tentukan paket sesuai kebutuhan jumlah project dan jenis pekerjaan yang dijalankan.</p>
+            </div>
+            <div class="relative">
+              <div class="relative z-10 flex h-12 w-12 items-center justify-center rounded-full border border-accent-gold/40 bg-ink font-display text-lg font-bold text-accent-gold">2</div>
+              <h3 class="mt-5 font-display text-base font-semibold text-slate-100">Registrasi &amp; bayar</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-400">Isi nama lengkap, email, nomor WhatsApp, lalu selesaikan pembayaran lewat halaman checkout aman.</p>
+            </div>
+            <div class="relative">
+              <div class="relative z-10 flex h-12 w-12 items-center justify-center rounded-full border border-accent-gold/40 bg-ink font-display text-lg font-bold text-accent-gold">3</div>
+              <h3 class="mt-5 font-display text-base font-semibold text-slate-100">Masuk dan mulai build</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-400">Kredensial akun dikirim ke email Anda begitu pembayaran dikonfirmasi. Login dan mulai membangun.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ PRICING ============ -->
+      <section id="pricing" class="border-t border-line/60 py-20">
+        <div class="mx-auto max-w-7xl px-5 sm:px-6">
+          <div class="max-w-2xl">
+            <span class="font-mono text-xs text-accent-teal">// paket layanan</span>
+            <h2 class="mt-3 font-display text-3xl font-bold text-slate-50 sm:text-4xl">Paket layanan</h2>
+            <p class="mt-3 leading-relaxed text-slate-400">Paket di bawah ini diambil dari konfigurasi admin dan akan ikut berubah saat diperbarui.</p>
+          </div>
+
+          <div id="pricing-loading" class="mt-10 flex items-center gap-3 font-mono text-sm text-slate-500">
+            <span class="h-2 w-2 rounded-full bg-accent-gold animate-blink"></span> memuat paket...
+          </div>
+          <div id="pricing-grid" style="display: none" class="mt-10 grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"></div>
+          <div id="pricing-empty" style="display: none" class="mt-10 rounded-2xl border border-line bg-surface p-8 text-center text-slate-500"></div>
+        </div>
+      </section>
+
+      <!-- ============ CHECKOUT ============ -->
+      <section id="checkout" class="border-t border-line/60 py-20">
+        <div class="mx-auto max-w-7xl px-5 sm:px-6">
+          <div class="max-w-2xl">
+            <span class="font-mono text-xs text-accent-teal">// pendaftaran &amp; pembayaran</span>
+            <h2 class="mt-3 font-display text-3xl font-bold text-slate-50 sm:text-4xl">Pendaftaran dan pembayaran</h2>
+            <p class="mt-3 leading-relaxed text-slate-400">
+              Daftarkan akun dengan nama lengkap, email, nomor WhatsApp, dan paket pilihan. Akun dibuat otomatis begitu pembayaran dikonfirmasi.
+            </p>
+          </div>
+
+          <div class="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div class="overflow-hidden rounded-3xl border border-line bg-surface">
+              <div class="flex items-center gap-2 border-b border-line bg-surface2 px-5 py-3 font-mono text-xs text-slate-500">
+                <span class="h-2 w-2 rounded-full bg-accent-gold"></span> register.form
+              </div>
+              <form id="registration-form" class="space-y-5 p-6">
+                <div>
+                  <label for="registration_package_id" class="mb-2 block text-sm font-medium text-slate-300">Pilih paket</label>
+                  <select id="registration_package_id" name="package_id" required class="w-full rounded-xl border border-line bg-ink px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-accent-gold/60 focus:ring-2 focus:ring-accent-gold/20"></select>
+                </div>
+                <div>
+                  <label for="full_name" class="mb-2 block text-sm font-medium text-slate-300">Nama lengkap</label>
+                  <input id="full_name" name="full_name" type="text" placeholder="Masukkan nama lengkap" required class="w-full rounded-xl border border-line bg-ink px-4 py-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-accent-gold/60 focus:ring-2 focus:ring-accent-gold/20" />
+                </div>
+                <div>
+                  <label for="email" class="mb-2 block text-sm font-medium text-slate-300">Email</label>
+                  <input id="email" name="email" type="email" placeholder="Masukkan email aktif" required class="w-full rounded-xl border border-line bg-ink px-4 py-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-accent-gold/60 focus:ring-2 focus:ring-accent-gold/20" />
+                </div>
+                <div>
+                  <label for="buyer_phone" class="mb-2 block text-sm font-medium text-slate-300">Nomor WhatsApp</label>
+                  <input id="buyer_phone" name="buyer_phone" type="tel" placeholder="0812xxxxxxxx" required class="w-full rounded-xl border border-line bg-ink px-4 py-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-accent-gold/60 focus:ring-2 focus:ring-accent-gold/20" />
+                </div>
+                <div class="rounded-xl border border-line bg-ink p-4">
+                  <p class="mb-1 font-mono text-xs text-slate-500">checkout otomatis</p>
+                  <p class="text-sm leading-relaxed text-slate-400">Setelah submit, Anda akan diarahkan ke halaman pembayaran. Akun dibuat otomatis setelah pembayaran berhasil.</p>
+                </div>
+                <button id="registration-button" type="submit" class="w-full rounded-full bg-accent-gold px-6 py-3.5 text-sm font-semibold text-ink transition hover:brightness-110 disabled:opacity-60">Lanjut ke Pembayaran</button>
+                <div id="registration-status" class="min-h-[20px] text-sm text-slate-500"></div>
+              </form>
+            </div>
+
+            <div class="flex flex-col gap-4">
+              <div class="rounded-3xl border border-line bg-surface p-6">
+                <p class="font-display text-sm font-semibold text-slate-100">Pembayaran aman</p>
+                <p class="mt-2 text-sm leading-relaxed text-slate-400">Checkout diproses lewat payment gateway resmi dan terenkripsi. Kami tidak pernah menyimpan detail kartu atau rekening Anda.</p>
+              </div>
+              <div class="rounded-3xl border border-line bg-surface p-6">
+                <p class="font-display text-sm font-semibold text-slate-100">Aktivasi instan</p>
+                <p class="mt-2 text-sm leading-relaxed text-slate-400">Setelah pembayaran dikonfirmasi, akun dan kredensial login dikirim otomatis ke email Anda — tanpa menunggu approval manual.</p>
+              </div>
+              <div class="rounded-3xl border border-line bg-surface p-6">
+                <p class="font-display text-sm font-semibold text-slate-100">Sudah punya akun?</p>
+                <p class="mt-2 text-sm leading-relaxed text-slate-400">Gunakan link login yang dikirim ke email Anda saat pertama kali mendaftar untuk masuk ke dashboard.</p>
+              </div>
+            </div>
+          </div>
+
+          <div id="checkout-global-status" class="mt-6 min-h-[20px] text-sm text-slate-500"></div>
+        </div>
+      </section>
+
+      <!-- ============ FAQ ============ -->
+      <section id="faq" class="border-t border-line/60 py-20">
+        <div class="mx-auto max-w-4xl px-5 sm:px-6">
+          <span class="font-mono text-xs text-accent-teal">// faq</span>
+          <h2 class="mt-3 font-display text-3xl font-bold text-slate-50 sm:text-4xl">Pertanyaan yang sering diajukan</h2>
+
+          <div class="mt-8 space-y-3">
+            <details class="group rounded-2xl border border-line bg-surface p-5" open>
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-4 font-display text-base font-semibold text-slate-100">
+                Apa saja yang termasuk paket Bitwize Web Builder?
+                <svg class="h-5 w-5 shrink-0 text-slate-500 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" /></svg>
+              </summary>
+              <p class="mt-3 text-sm leading-relaxed text-slate-400">Paket biasanya mencakup akses dashboard, project builder, preview, publish, dan pengelolaan user sesuai jenis paket.</p>
+            </details>
+
+            <details class="group rounded-2xl border border-line bg-surface p-5">
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-4 font-display text-base font-semibold text-slate-100">
+                Berapa lama akun aktif setelah bayar?
+                <svg class="h-5 w-5 shrink-0 text-slate-500 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" /></svg>
+              </summary>
+              <p class="mt-3 text-sm leading-relaxed text-slate-400">Akun aktif otomatis dalam hitungan detik hingga beberapa menit setelah pembayaran dikonfirmasi. Kredensial login dikirim ke email Anda.</p>
+            </details>
+
+            <details class="group rounded-2xl border border-line bg-surface p-5">
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-4 font-display text-base font-semibold text-slate-100">
+                Apakah saya bisa membuat landing page dan aplikasi sekaligus?
+                <svg class="h-5 w-5 shrink-0 text-slate-500 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" /></svg>
+              </summary>
+              <p class="mt-3 text-sm leading-relaxed text-slate-400">Bisa. Sistem ini mendukung dua tipe project, yaitu landing page dan aplikasi bisnis berbasis Node.js.</p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ TERMS ============ -->
+      <section id="terms" class="border-t border-line/60 py-20">
+        <div class="mx-auto max-w-7xl px-5 sm:px-6">
+          <span class="font-mono text-xs text-accent-teal">// terms &amp; conditions</span>
+          <h2 class="mt-3 font-display text-3xl font-bold text-slate-50 sm:text-4xl">Terms &amp; Conditions</h2>
+          <p class="mt-3 max-w-2xl leading-relaxed text-slate-400">Gunakan bagian ini untuk menaruh aturan penggunaan layanan, hak dan kewajiban pengguna, serta batas tanggung jawab.</p>
+
+          <div class="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div class="rounded-2xl border border-line bg-surface p-6">
+              <span class="font-mono text-xs text-slate-600">§1</span>
+              <h3 class="mt-2 font-display text-base font-semibold text-slate-100">Penggunaan layanan</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-400">Layanan hanya digunakan untuk keperluan yang sesuai dengan ketentuan, hukum yang berlaku, dan kebijakan internal yang Anda tetapkan.</p>
+            </div>
+            <div class="rounded-2xl border border-line bg-surface p-6">
+              <span class="font-mono text-xs text-slate-600">§2</span>
+              <h3 class="mt-2 font-display text-base font-semibold text-slate-100">Akses akun</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-400">Pengguna wajib menjaga kerahasiaan kredensial akun dan bertanggung jawab atas aktivitas yang dilakukan melalui akun tersebut.</p>
+            </div>
+            <div class="rounded-2xl border border-line bg-surface p-6">
+              <span class="font-mono text-xs text-slate-600">§3</span>
+              <h3 class="mt-2 font-display text-base font-semibold text-slate-100">Pembaruan ketentuan</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-400">Anda dapat memperbarui syarat dan ketentuan sewaktu-waktu selama perubahan tersebut diumumkan dengan jelas kepada pengguna.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ REFUND ============ -->
+      <section id="refund" class="border-t border-line/60 py-20">
+        <div class="mx-auto max-w-7xl px-5 sm:px-6">
+          <span class="font-mono text-xs text-accent-teal">// refund policy</span>
+          <h2 class="mt-3 font-display text-3xl font-bold text-slate-50 sm:text-4xl">Refund Policy</h2>
+          <p class="mt-3 max-w-2xl leading-relaxed text-slate-400">Jelaskan syarat pengajuan refund, waktu proses, dan pengecualian yang berlaku agar tidak menimbulkan salah paham.</p>
+
+          <div class="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div class="rounded-2xl border border-line bg-surface p-6">
+              <span class="font-mono text-xs text-slate-600">§1</span>
+              <h3 class="mt-2 font-display text-base font-semibold text-slate-100">Pengajuan refund</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-400">Permintaan pengembalian dana diajukan melalui kanal resmi dengan menyertakan detail transaksi dan alasan pengajuan.</p>
+            </div>
+            <div class="rounded-2xl border border-line bg-surface p-6">
+              <span class="font-mono text-xs text-slate-600">§2</span>
+              <h3 class="mt-2 font-display text-base font-semibold text-slate-100">Waktu proses</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-400">Proses verifikasi dan tindak lanjut mengikuti kebijakan internal serta metode pembayaran yang digunakan saat transaksi.</p>
+            </div>
+            <div class="rounded-2xl border border-line bg-surface p-6">
+              <span class="font-mono text-xs text-slate-600">§3</span>
+              <h3 class="mt-2 font-display text-base font-semibold text-slate-100">Pengecualian</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-400">Produk digital yang sudah dipakai, akses yang sudah aktif, atau layanan yang sudah dikirim dapat dikecualikan dari refund.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ CONTACT ============ -->
+      <section id="kontak" class="border-t border-line/60 py-20">
+        <div class="mx-auto max-w-7xl px-5 sm:px-6">
+          <span class="font-mono text-xs text-accent-teal">// kontak</span>
+          <h2 class="mt-3 font-display text-3xl font-bold text-slate-50 sm:text-4xl">Kontak dan alamat</h2>
+          <p class="mt-3 max-w-2xl leading-relaxed text-slate-400">Bagian ini cocok untuk ditaruh di bawah halaman agar pengunjung langsung menemukan kontak bisnis Anda.</p>
+
+          <div class="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div class="rounded-2xl border border-line bg-surface p-6">
+              <h3 id="footer-kontak" class="font-display text-base font-semibold text-slate-100">Kontak</h3>
+              <div class="mt-4 space-y-3 text-sm text-slate-400">
+                <div class="flex items-center gap-3">
+                  <svg class="h-4 w-4 shrink-0 text-accent-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16v12H4z" /><path stroke-linecap="round" stroke-linejoin="round" d="M4 6l8 7 8-7" /></svg>
+                  bitwizedigitalplatform@gmail.com
+                </div>
+                <div class="flex items-center gap-3">
+                  <svg class="h-4 w-4 shrink-0 text-accent-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 5.5c0 8 6 14 14 14l2-3.5-5-2-1.3 1.6c-2.6-1.2-4.6-3.2-5.8-5.8l1.6-1.3-2-5H4.5z" /></svg>
+                  +6285719578195
+                </div>
+                <div class="flex items-center gap-3">
+                  <svg class="h-4 w-4 shrink-0 text-accent-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 2" /></svg>
+                  Setiap hari
+                </div>
+              </div>
+            </div>
+            <div class="rounded-2xl border border-line bg-surface p-6">
+              <h3 class="font-display text-base font-semibold text-slate-100">Alamat</h3>
+              <div class="mt-4 flex items-start gap-3 text-sm text-slate-400">
+                <svg class="mt-0.5 h-4 w-4 shrink-0 text-accent-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s7-6.5 7-11a7 7 0 10-14 0c0 4.5 7 11 7 11z" /><circle cx="12" cy="10" r="2" /></svg>
+                <span>Jalan Harun II No.126 A, Palmerah, Jakarta Barat</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ============ FOOTER ============ -->
+    <footer class="border-t border-line/60 py-10">
+      <div class="mx-auto flex max-w-7xl flex-col items-center gap-4 px-5 sm:px-6 sm:flex-row sm:justify-between">
+        <div class="flex items-center gap-3">
+          <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent-gold to-accent-teal font-display text-xs font-bold text-ink">&lt;/&gt;</span>
+          <span class="font-display text-sm font-semibold text-slate-200">Bitwize Web Builder</span>
+        </div>
+        <p class="text-center text-sm text-slate-500">Landing page publik, registrasi akun, dan informasi legal.</p>
+        <div class="flex gap-5 font-mono text-xs text-slate-500">
+          <a href="#faq" class="hover:text-slate-200">faq</a>
+          <a href="#terms" class="hover:text-slate-200">terms</a>
+          <a href="#refund" class="hover:text-slate-200">refund</a>
+          <a href="#kontak" class="hover:text-slate-200">kontak</a>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      const pricingGrid = document.getElementById("pricing-grid");
+      const pricingLoading = document.getElementById("pricing-loading");
+      const pricingEmpty = document.getElementById("pricing-empty");
+      const registrationPackageSelect = document.getElementById("registration_package_id");
+      const registrationForm = document.getElementById("registration-form");
+      const registrationButton = document.getElementById("registration-button");
+      const registrationStatus = document.getElementById("registration-status");
+      const checkoutGlobalStatus = document.getElementById("checkout-global-status");
+
+      function formatCurrency(value) {
+        return new Intl.NumberFormat("id-ID", {
+          style: "currency",
+          currency: "IDR",
+          maximumFractionDigits: 0,
+        }).format(Number(value) || 0);
+      }
+
+      function setStatus(el, message, type) {
+        el.textContent = message || "";
+        el.classList.remove("text-red-400", "text-emerald-400", "text-slate-500");
+        if (type === "error") el.classList.add("text-red-400");
+        else if (type === "success") el.classList.add("text-emerald-400");
+        else el.classList.add("text-slate-500");
+      }
+
+      function renderPackages(items) {
+        pricingGrid.innerHTML = "";
+        registrationPackageSelect.innerHTML = "";
+
+        if (!Array.isArray(items) || items.length === 0) {
+          pricingGrid.style.display = "none";
+          pricingEmpty.style.display = "block";
+          pricingEmpty.textContent = "Belum ada paket aktif yang ditampilkan.";
+          return;
+        }
+
+        pricingGrid.style.display = "grid";
+        pricingEmpty.style.display = "none";
+
+        items.forEach((plan, index) => {
+          const recommended = index === 1;
+          const card = document.createElement("article");
+          card.className = recommended
+            ? "relative flex flex-col gap-5 rounded-3xl border border-accent-gold/40 bg-gradient-to-b from-accent-gold/10 to-surface p-6 shadow-xl shadow-black/30"
+            : "relative flex flex-col gap-5 rounded-3xl border border-line bg-surface p-6 shadow-xl shadow-black/30";
+
+          let features = plan.features;
+          if (typeof features === "string") {
+            try { features = JSON.parse(features); } catch (e) { features = []; }
+          }
+          if (!Array.isArray(features)) features = [];
+          const featureItems = features
+            .map(
+              (feature) =>
+                `<li class="flex gap-2 text-sm text-slate-300"><svg class="mt-0.5 h-4 w-4 shrink-0 text-accent-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span>${String(feature)}</span></li>`,
+            )
+            .join("");
+          const planPrice =
+            Number(plan.initial_price) > 0 ? formatCurrency(plan.initial_price) : "Hubungi admin";
+          const renewalPrice =
+            Number(plan.renewal_price) > 0 ? formatCurrency(plan.renewal_price) : "Hubungi admin";
+
+          card.innerHTML = `
+            <span class="inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 font-mono text-xs ${recommended ? "bg-accent-gold/15 text-accent-gold" : "bg-slate-800 text-slate-300"}">${recommended ? "paket--recommended" : "paket--aktif"}</span>
+            <div>
+              <h3 class="font-display text-lg font-semibold text-slate-100">${plan.name}</h3>
+              <p class="mt-1 text-sm leading-relaxed text-slate-400">${plan.description || "Paket untuk workflow build dan pengelolaan project."}</p>
+            </div>
+            <div>
+              <div class="font-display text-3xl font-bold text-slate-50">${planPrice}</div>
+              <div class="mt-2 space-y-1 font-mono text-xs text-slate-500">
+              <div>perpanjangan: ${renewalPrice} / 30 hari</div>
+                <div>maksimal ${Number(plan.max_projects) || 0} project</div>
+              </div>
+            </div>
+            <ul class="flex-1 space-y-2">${featureItems || '<li class="text-sm text-slate-400">Konfigurasi paket tersedia dari panel admin.</li>'}</ul>
+            <button type="button" data-package-id="${plan.id}" class="rounded-full px-5 py-3 text-sm font-semibold transition ${recommended ? "bg-accent-gold text-ink hover:brightness-110" : "bg-slate-800 text-slate-100 hover:bg-slate-700"}">${recommended ? "Paket Rekomendasi" : "Pilih Paket"}</button>
+          `;
+
+          pricingGrid.appendChild(card);
+
+          const option = document.createElement("option");
+          option.value = String(plan.id);
+          option.textContent = `${plan.name} — ${planPrice} / renewal ${renewalPrice}`;
+          registrationPackageSelect.appendChild(option);
+        });
+
+        pricingGrid.querySelectorAll("[data-package-id]").forEach((button) => {
+          button.addEventListener("click", () => {
+            registrationPackageSelect.value = button.getAttribute("data-package-id");
+            document.getElementById("checkout").scrollIntoView({ behavior: "smooth", block: "start" });
+          });
+        });
+      }
+
+      async function loadPackages() {
+        pricingLoading.style.display = "flex";
+        try {
+          const res = await fetch("/api/public/packages");
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            throw new Error(data.message || "Gagal memuat paket publik.");
+          }
+          const packages = Array.isArray(data.data) ? data.data : [];
+          renderPackages(packages);
+        } catch (error) {
+          pricingGrid.style.display = "none";
+          pricingEmpty.style.display = "block";
+          pricingEmpty.textContent = error.message || "Paket publik belum bisa dimuat.";
+        } finally {
+          pricingLoading.style.display = "none";
+        }
+      }
+
+      function buildPaymentMessage(status, provisioningStatus, provisioningError, username) {
+        if (status === "paid" && provisioningStatus === "succeeded") {
+          return username
+            ? `Pembayaran berhasil! Akun Anda (${username}) sudah aktif. Cek email untuk kredensial login.`
+            : "Pembayaran berhasil! Akun Anda sudah aktif. Cek email untuk kredensial login.";
+        }
+        if (status === "paid" && provisioningStatus === "failed") {
+          return "Pembayaran diterima. Aktivasi akun sedang diproses ulang oleh sistem — kredensial akan dikirim ke email begitu selesai.";
+        }
+        if (status === "paid") {
+          return "Pembayaran berhasil diterima. Akun Anda sedang diaktifkan otomatis...";
+        }
+        if (status === "expired") {
+          return "Sesi pembayaran sudah kedaluwarsa. Silakan checkout ulang.";
+        }
+        if (status === "pending") {
+          return "Menunggu konfirmasi pembayaran. Halaman ini akan memperbarui status otomatis.";
+        }
+        return "Status pembayaran belum selesai. Silakan cek kembali beberapa saat lagi.";
+      }
+
+      async function pollPaymentStatus(referenceId, options = {}) {
+        if (!referenceId) return null;
+
+        const targetEl = options.targetEl || checkoutGlobalStatus;
+        const maxAttempts = options.maxAttempts || 20;
+
+        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+          try {
+            const res = await fetch(`/api/payments/status/${encodeURIComponent(referenceId)}`);
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              throw new Error(data.message || "Status pembayaran tidak ditemukan.");
+            }
+
+            const isDone = data.status === "paid" && data.provisioning_status === "succeeded";
+            setStatus(
+              targetEl,
+              buildPaymentMessage(data.status, data.provisioning_status, data.provisioning_last_error, data.remote_username),
+              data.provisioning_status === "failed" ? "error" : isDone ? "success" : "",
+            );
+            if (isDone || data.status === "expired") {
+              return data;
+            }
+          } catch (error) {
+            setStatus(targetEl, error.message || "Gagal memeriksa status pembayaran.", "error");
+            return null;
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+        }
+
+        return null;
+      }
+
+      function handlePaymentQueryState() {
+        const params = new URLSearchParams(window.location.search);
+        const payment = params.get("payment");
+        const referenceId = params.get("ref");
+        if (!payment || !referenceId) return;
+
+        if (payment === "cancel") {
+          setStatus(
+            checkoutGlobalStatus,
+            "Pembayaran dibatalkan atau belum diselesaikan. Anda bisa membuat checkout baru dari form di atas.",
+            "error",
+          );
+          return;
+        }
+
+        if (payment === "success") {
+          setStatus(
+            checkoutGlobalStatus,
+            "Pembayaran berhasil dikirim. Sistem sedang memverifikasi status pembayaran Anda.",
+            "",
+          );
+          document.getElementById("checkout").scrollIntoView({ behavior: "smooth", block: "start" });
+          pollPaymentStatus(referenceId, { targetEl: checkoutGlobalStatus });
+        }
+      }
+
+      async function handleRegistrationSubmit(event) {
+        event.preventDefault();
+        setStatus(registrationStatus, "", "");
+
+        const formData = new FormData(registrationForm);
+        const fullName = String(formData.get("full_name") || "").trim();
+        const email = String(formData.get("email") || "").trim();
+        const packageId = String(formData.get("package_id") || "").trim();
+        const buyerPhone = String(formData.get("buyer_phone") || "").trim();
+
+        if (!fullName || !email || !packageId || !buyerPhone) {
+          setStatus(registrationStatus, "Semua field registrasi wajib diisi.", "error");
+          return;
+        }
+
+        registrationButton.disabled = true;
+        registrationButton.textContent = "Membuat Checkout...";
+
+        try {
+          const res = await fetch("/api/payments/ipaymu/checkout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              package_id: packageId,
+              buyer_name: fullName,
+              buyer_email: email,
+              buyer_phone: buyerPhone,
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            throw new Error(data.message || "Gagal membuat checkout pembayaran.");
+          }
+          if (!data.payment_url) {
+            throw new Error("URL checkout pembayaran tidak tersedia.");
+          }
+
+          setStatus(
+            registrationStatus,
+            "Checkout berhasil dibuat. Anda akan diarahkan ke halaman pembayaran.",
+            "success",
+          );
+          window.location.href = data.payment_url;
+        } catch (error) {
+          setStatus(registrationStatus, error.message || "Checkout gagal diproses.", "error");
+        } finally {
+          registrationButton.disabled = false;
+          registrationButton.textContent = "Lanjut ke Pembayaran";
+        }
+      }
+
+      registrationForm.addEventListener("submit", handleRegistrationSubmit);
+
+      const menuButton = document.getElementById("menu-toggle");
+      const mobileMenu = document.getElementById("mobile-menu");
+      if (menuButton && mobileMenu) {
+        menuButton.addEventListener("click", () => mobileMenu.classList.toggle("hidden"));
+        mobileMenu.querySelectorAll("a").forEach((link) =>
+          link.addEventListener("click", () => mobileMenu.classList.add("hidden")),
+        );
+      }
+
+      loadPackages();
+      handlePaymentQueryState();
+    </script>
+  </body>
+</html>
