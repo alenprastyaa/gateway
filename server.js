@@ -21,6 +21,11 @@ app.set("trust proxy", 1);
 
 app.use(cors());
 app.use(express.json());
+// iPaymu can send payment notifications using either the current JSON
+// callback format or the legacy application/x-www-form-urlencoded format.
+// Accept both so a successful payment is not left pending merely because of
+// the callback format selected in the merchant dashboard.
+app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/api/public", publicRoutes);
