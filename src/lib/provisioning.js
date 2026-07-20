@@ -38,6 +38,32 @@ async function provisionPaidUser(targetVps, { referenceId, buyer, remotePackageI
   );
 }
 
+async function renewPaidUser(targetVps, { referenceId, buyer, remotePackageId }) {
+  const secret = decryptSecret(targetVps.internal_secret_encrypted);
+
+  const response = await axios.post(
+    endpointUrl(targetVps, "/api/internal/renew-paid-user"),
+    {
+      reference_id: referenceId,
+      buyer: { email: buyer.email },
+      remote_package_id: remotePackageId,
+    },
+    {
+      headers: { "X-Internal-Secret": secret },
+      timeout: 15000,
+      validateStatus: () => true,
+    }
+  );
+
+  if (response.status >= 200 && response.status < 300 && response.data?.success) {
+    return response.data;
+  }
+
+  throw new Error(
+    response.data?.message || `Renewal gagal dengan status ${response.status} dari ${targetVps.name}.`
+  );
+}
+
 async function fetchRemoteUserCount(targetVps) {
   const secret = decryptSecret(targetVps.internal_secret_encrypted);
 
@@ -84,13 +110,20 @@ async function runOrderProvisioning(order) {
   }
 
   try {
-    const result = await provisionPaidUser(targetVps, {
-      referenceId: order.reference_id,
-      buyer: { name: order.buyer_name, email: order.buyer_email, phone: order.buyer_phone },
-      remotePackageId: order.remote_package_id,
-      amount: order.amount,
-      landingOrderId: order.id,
-    });
+    const isRenewal = order.order_type === "renewal";
+    const result = isRenewal
+      ? await renewPaidUser(targetVps, {
+          referenceId: order.reference_id,
+          buyer: { email: order.buyer_email },
+          remotePackageId: order.remote_package_id,
+        })
+      : await provisionPaidUser(targetVps, {
+          referenceId: order.reference_id,
+          buyer: { name: order.buyer_name, email: order.buyer_email, phone: order.buyer_phone },
+          remotePackageId: order.remote_package_id,
+          amount: order.amount,
+          landingOrderId: order.id,
+        });
 
     order.provisioning_status = "succeeded";
     order.remote_user_id = result.user?.id || null;
@@ -99,7 +132,9 @@ async function runOrderProvisioning(order) {
     order.provisioning_last_error = null;
     await order.save();
 
-    if (!result.already_existed) {
+    // Renewals extend an existing account on a VPS it already occupies a slot
+    // on — never advance quota for them, only for genuinely new creations.
+    if (!isRenewal && !result.already_existed) {
       await recordProvisionedUser(targetVps.id);
     }
 
@@ -112,4 +147,4 @@ async function runOrderProvisioning(order) {
   }
 }
 
-module.exports = { provisionPaidUser, fetchRemoteUserCount, runOrderProvisioning };
+module.exports = { provisionPaidUser, renewPaidUser, fetchRemoteUserCount, runOrderProvisioning };

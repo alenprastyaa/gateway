@@ -14,6 +14,13 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: "pending",
       },
+      // Set automatically at checkout time based on whether this buyer_email
+      // already has a succeeded order — see POST /ipaymu/checkout.
+      order_type: {
+        type: DataTypes.ENUM("new_registration", "renewal"),
+        allowNull: false,
+        defaultValue: "new_registration",
+      },
       ipaymu_session_id: { type: DataTypes.STRING, allowNull: true },
       ipaymu_payment_url: { type: DataTypes.STRING, allowNull: true },
       ipaymu_response: { type: DataTypes.JSON, allowNull: true },

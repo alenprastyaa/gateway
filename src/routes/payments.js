@@ -43,10 +43,23 @@ router.post("/ipaymu/checkout", checkoutLimiter, async (req, res, next) => {
       return res.status(404).json({ message: "Paket tidak ditemukan atau sedang nonaktif." });
     }
 
-    const targetVps = await pickActiveTarget();
+    // If this email already has a successfully provisioned order, treat this
+    // checkout as a renewal and route it to the same VPS the account actually
+    // lives on — that VPS may no longer be the currently "active" quota target.
+    const previousOrder = await PaymentOrder.findOne({
+      where: { buyer_email: buyer.email.trim(), provisioning_status: "succeeded" },
+      order: [["createdAt", "DESC"]],
+    });
+    const orderType = previousOrder ? "renewal" : "new_registration";
+
+    const targetVps = previousOrder
+      ? await TargetVps.findByPk(previousOrder.target_vps_id)
+      : await pickActiveTarget();
     if (!targetVps) {
       return res.status(400).json({
-        message: "Tidak ada VPS target aktif saat ini. Hubungi admin.",
+        message: previousOrder
+          ? "VPS asal akun Anda tidak ditemukan lagi. Hubungi admin."
+          : "Tidak ada VPS target aktif saat ini. Hubungi admin.",
       });
     }
 
@@ -76,6 +89,7 @@ router.post("/ipaymu/checkout", checkoutLimiter, async (req, res, next) => {
       buyer_phone: buyer.phone,
       amount,
       status: "pending",
+      order_type: orderType,
       ipaymu_session_id: ipaymuResult?.Data?.SessionID || null,
       ipaymu_payment_url: ipaymuResult?.Data?.Url || null,
       ipaymu_response: ipaymuResult,

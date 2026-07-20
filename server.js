@@ -12,6 +12,7 @@ const adminPackagesRoutes = require("./src/routes/admin/packages");
 const adminOrdersRoutes = require("./src/routes/admin/orders");
 const errorHandler = require("./src/middleware/errorHandler");
 const { reconcileUserCounts } = require("./src/jobs/reconcileUserCounts");
+const { runPendingMigrations } = require("./src/lib/migrate");
 
 const app = express();
 // Runs behind nginx, which sets X-Forwarded-For — without this,
@@ -56,6 +57,12 @@ async function ensureDefaultAdmin() {
 async function start() {
   await sequelize.authenticate();
   console.log(`[db] connected to ${env.DB_NAME}@${env.DB_HOST}`);
+
+  // Runs on every boot so a `pm2 restart` alone is enough to apply new
+  // migrations — no manual `npm run migrate` step needed. Fails fast (see
+  // start().catch below) rather than let the server run against a
+  // mismatched schema.
+  await runPendingMigrations();
 
   await sequelize.sync();
   console.log("[db] schema sync selesai (tabel dibuat otomatis jika belum ada)");
