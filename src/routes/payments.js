@@ -2,7 +2,7 @@ const express = require("express");
 const crypto = require("crypto");
 const rateLimit = require("express-rate-limit");
 const { PackagePlan, TargetVps, PackageMapping, PaymentOrder } = require("../models");
-const { createIpaymuRedirectPayment } = require("../lib/ipaymu");
+const { createIpaymuRedirectPayment, verifyIpaymuCallbackSignature } = require("../lib/ipaymu");
 const { pickActiveTarget } = require("../lib/quota");
 const { runOrderProvisioning } = require("../lib/provisioning");
 
@@ -131,6 +131,19 @@ router.get("/status/:referenceId", async (req, res, next) => {
 router.post("/ipaymu/notify", async (req, res, next) => {
   try {
     const payload = req.body || {};
+
+    // Reject anything that isn't genuinely signed by iPaymu — otherwise
+    // anyone can POST { reference_id, status: "berhasil" } straight to this
+    // endpoint and get an order marked paid (and provisioned) for free.
+    if (!verifyIpaymuCallbackSignature(payload, req.headers["x-signature"])) {
+      console.warn("[ipaymu:notify] rejected — invalid or missing X-Signature", {
+        ip: req.ip,
+        reference_id: payload.reference_id || payload.referenceId || null,
+        trx_id: payload.trx_id || null,
+      });
+      return res.status(400).json({ success: false, message: "Invalid signature." });
+    }
+
     const referenceId = String(
       payload.reference_id || payload.referenceId || payload.ReferenceId || payload.trx_id || ""
     ).trim();

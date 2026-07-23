@@ -20,7 +20,22 @@ const app = express();
 // ERR_ERL_UNEXPECTED_X_FORWARDED_FOR on every request.
 app.set("trust proxy", 1);
 
-app.use(cors());
+// The landing page and admin CMS are both served from this same origin, so
+// they never need cross-origin access — this whitelist only matters for
+// blocking arbitrary third-party sites from calling the API directly.
+const ALLOWED_ORIGINS = [
+  "https://checkout.applicationservice.id",
+  "https://checkout.idschoolsystem.com",
+  "https://lms.idschoolsystem.com",
+];
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+      callback(new Error("Not allowed by CORS"));
+    },
+  })
+);
 app.use(express.json());
 // iPaymu can send payment notifications using either the current JSON
 // callback format or the legacy application/x-www-form-urlencoded format.

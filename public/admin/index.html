@@ -378,6 +378,18 @@ const STATUS_DOTS = {
   succeeded: "bg-emerald-500", not_started: "bg-slate-300",
 };
 
+// buyer_name/buyer_email/provisioning_last_error originate from the public,
+// unauthenticated checkout form — never interpolate them into innerHTML raw.
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  }[c]));
+}
+
 function statusBadge(status) {
   const dot = STATUS_DOTS[status] || "bg-slate-300";
   const label = STATUS_LABELS[status] || status;
@@ -705,10 +717,10 @@ async function loadOrders() {
   data.forEach((o) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td class="px-4 py-3 font-mono text-xs font-medium text-slate-900">${o.reference_id}</td>
-      <td class="px-4 py-3"><div class="font-bold text-slate-900">${o.buyer_name}</div><div class="text-xs text-slate-900">${o.buyer_email}</div></td>
+      <td class="px-4 py-3 font-mono text-xs font-medium text-slate-900">${escapeHtml(o.reference_id)}</td>
+      <td class="px-4 py-3"><div class="font-bold text-slate-900">${escapeHtml(o.buyer_name)}</div><div class="text-xs text-slate-900">${escapeHtml(o.buyer_email)}</div></td>
       <td class="px-4 py-3">${statusBadge(o.status)}</td>
-      <td class="px-4 py-3">${statusBadge(o.provisioning_status)}${o.provisioning_last_error ? `<div class="mt-1 text-xs font-semibold text-red-600">${o.provisioning_last_error}</div>` : ""}</td>
+      <td class="px-4 py-3">${statusBadge(o.provisioning_status)}${o.provisioning_last_error ? `<div class="mt-1 text-xs font-semibold text-red-600">${escapeHtml(o.provisioning_last_error)}</div>` : ""}</td>
       <td class="px-4 py-3 text-slate-900">${o.targetVps ? o.targetVps.name : "-"}</td>
       <td class="px-4 py-3">${o.status === "paid" && o.provisioning_status === "failed" ? btnPrimary("Coba Lagi", `data-id="${o.id}" class="retry-btn"`) : ""}</td>
     `;

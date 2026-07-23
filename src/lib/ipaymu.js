@@ -63,4 +63,56 @@ async function createIpaymuRedirectPayment(req, { plan, order, buyer }) {
   return result;
 }
 
-module.exports = { buildIpaymuTimestamp, createIpaymuSignature, createIpaymuRedirectPayment };
+// iPaymu callback (notify) fields per https://docs.ipaymu.com/docs/callback:
+// these are sent as strings over x-www-form-urlencoded/JSON and must be
+// coerced back to their real types before the signature can be recomputed.
+const CALLBACK_INT_FIELDS = ["trx_id", "status_code", "transaction_status_code", "paid_off"];
+
+function normalizeIpaymuCallbackData(rawData) {
+  const result = {};
+  for (const key of Object.keys(rawData || {})) {
+    const val = rawData[key];
+    if (key === "signature") continue;
+    if (key === "is_escrow") {
+      result[key] = val === true || val === 1 || val === "1" || val === "true";
+    } else if (CALLBACK_INT_FIELDS.includes(key)) {
+      const n = Number.parseInt(val, 10);
+      result[key] = Number.isNaN(n) ? val : n;
+    } else if (key === "additional_info") {
+      result[key] = val === "[]" ? [] : val;
+    } else {
+      result[key] = String(val);
+    }
+  }
+  if (!("additional_info" in result)) result.additional_info = [];
+  return result;
+}
+
+// Verifies the callback actually came from iPaymu. The secret here is the
+// merchant VA number (not the API key) — this is iPaymu's own convention,
+// documented at https://docs.ipaymu.com/docs/callback#signature-validation.
+// Without this check anyone can POST a fake "berhasil" payload straight to
+// the notify endpoint and get an order marked paid for free.
+function verifyIpaymuCallbackSignature(rawBody, receivedSignature) {
+  if (!receivedSignature || !env.IPAYMU_VA) return false;
+
+  const normalized = normalizeIpaymuCallbackData(rawBody);
+  const sortedKeys = Object.keys(normalized).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const sorted = {};
+  for (const key of sortedKeys) sorted[key] = normalized[key];
+
+  const jsonBody = JSON.stringify(sorted).replace(/\//g, "\\/");
+  const calculated = crypto.createHmac("sha256", env.IPAYMU_VA).update(jsonBody).digest("hex");
+
+  const calculatedBuf = Buffer.from(calculated, "hex");
+  const receivedBuf = Buffer.from(String(receivedSignature), "hex");
+  if (calculatedBuf.length !== receivedBuf.length) return false;
+  return crypto.timingSafeEqual(calculatedBuf, receivedBuf);
+}
+
+module.exports = {
+  buildIpaymuTimestamp,
+  createIpaymuSignature,
+  createIpaymuRedirectPayment,
+  verifyIpaymuCallbackSignature,
+};

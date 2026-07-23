@@ -1,11 +1,22 @@
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 const { AdminUser } = require("../../models");
 const { verifyPassword, issueToken, hashPassword } = require("../../lib/auth");
 const authenticateAdmin = require("../../middleware/authenticateAdmin");
 
 const router = express.Router();
 
-router.post("/login", async (req, res, next) => {
+// Only the CMS admin ever hits this — 10 tries per 15 min per IP is plenty
+// for a mistyped password, but stops a script from brute-forcing it.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Terlalu banyak percobaan login. Coba lagi beberapa menit lagi." },
+});
+
+router.post("/login", loginLimiter, async (req, res, next) => {
   try {
     const username = String(req.body?.username || "").trim();
     const password = String(req.body?.password || "");
