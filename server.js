@@ -6,10 +6,13 @@ const { sequelize, AdminUser } = require("./src/models");
 const { hashPassword } = require("./src/lib/auth");
 const publicRoutes = require("./src/routes/public");
 const paymentRoutes = require("./src/routes/payments");
+const vpsRoutes = require("./src/routes/vps");
 const adminAuthRoutes = require("./src/routes/admin/auth");
 const adminTargetVpsRoutes = require("./src/routes/admin/targetVps");
 const adminPackagesRoutes = require("./src/routes/admin/packages");
 const adminOrdersRoutes = require("./src/routes/admin/orders");
+const adminTokenPackagesRoutes = require("./src/routes/admin/tokenPackages");
+const adminTokenOrdersRoutes = require("./src/routes/admin/tokenOrders");
 const errorHandler = require("./src/middleware/errorHandler");
 const { reconcileUserCounts } = require("./src/jobs/reconcileUserCounts");
 const { runPendingMigrations } = require("./src/lib/migrate");
@@ -28,10 +31,13 @@ const ALLOWED_ORIGINS = [
   "https://checkout.idschoolsystem.com",
   "https://lms.idschoolsystem.com",
 ];
+const LOCALHOST_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+      if (!origin || ALLOWED_ORIGINS.includes(origin) || LOCALHOST_ORIGIN_PATTERN.test(origin)) {
+        return callback(null, true);
+      }
       callback(new Error("Not allowed by CORS"));
     },
   })
@@ -46,10 +52,13 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/api/public", publicRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/vps", vpsRoutes);
 app.use("/api/admin", adminAuthRoutes);
 app.use("/api/admin/target-vps", adminTargetVpsRoutes);
 app.use("/api/admin/packages", adminPackagesRoutes);
 app.use("/api/admin/orders", adminOrdersRoutes);
+app.use("/api/admin/token-packages", adminTokenPackagesRoutes);
+app.use("/api/admin/token-orders", adminTokenOrdersRoutes);
 
 app.use(errorHandler);
 

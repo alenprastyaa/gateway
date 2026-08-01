@@ -64,6 +64,83 @@ async function renewPaidUser(targetVps, { referenceId, buyer, remotePackageId })
   );
 }
 
+async function creditTokens(targetVps, { referenceId, userId, tokenAmount }) {
+  const secret = decryptSecret(targetVps.internal_secret_encrypted);
+
+  const response = await axios.post(
+    endpointUrl(targetVps, "/api/internal/credit-tokens"),
+    {
+      reference_id: referenceId,
+      user_id: userId,
+      token_amount: tokenAmount,
+    },
+    {
+      headers: { "X-Internal-Secret": secret },
+      timeout: 15000,
+      validateStatus: () => true,
+    }
+  );
+
+  if (response.status >= 200 && response.status < 300 && response.data?.success) {
+    return response.data;
+  }
+
+  throw new Error(
+    response.data?.message || `Kredit token gagal dengan status ${response.status} dari ${targetVps.name}.`
+  );
+}
+
+// Same shape as runOrderProvisioning, but for token top-up orders: no quota
+// bookkeeping (crediting an existing user's balance never consumes a "new
+// account" slot), and idempotent for the same reason — the backend VPS's
+// credit-tokens endpoint just adds tokenAmount, so a retry after a genuine
+// partial failure is safe, but we still gate on credit_status to avoid
+// double-crediting on webhook retries once a credit has already succeeded.
+async function runTokenOrderCrediting(order) {
+  if (order.credit_status === "succeeded") {
+    return { alreadyDone: true, success: true };
+  }
+
+  if (!order.target_vps_id) {
+    order.credit_status = "failed";
+    order.credit_last_error = "Order ini tidak memiliki target VPS.";
+    await order.save();
+    return { alreadyDone: false, success: false };
+  }
+
+  order.credit_status = "pending";
+  order.credit_attempts += 1;
+  await order.save();
+
+  const targetVps = await TargetVps.findByPk(order.target_vps_id);
+  if (!targetVps) {
+    order.credit_status = "failed";
+    order.credit_last_error = "Target VPS pada order ini tidak ditemukan lagi.";
+    await order.save();
+    return { alreadyDone: false, success: false };
+  }
+
+  try {
+    await creditTokens(targetVps, {
+      referenceId: order.reference_id,
+      userId: order.remote_user_id,
+      tokenAmount: order.token_amount,
+    });
+
+    order.credit_status = "succeeded";
+    order.credited_at = new Date();
+    order.credit_last_error = null;
+    await order.save();
+
+    return { alreadyDone: false, success: true };
+  } catch (e) {
+    order.credit_status = "failed";
+    order.credit_last_error = e.message || "Kredit token gagal.";
+    await order.save();
+    return { alreadyDone: false, success: false, error: e.message };
+  }
+}
+
 async function fetchRemoteUserCount(targetVps) {
   const secret = decryptSecret(targetVps.internal_secret_encrypted);
 
@@ -147,4 +224,11 @@ async function runOrderProvisioning(order) {
   }
 }
 
-module.exports = { provisionPaidUser, renewPaidUser, fetchRemoteUserCount, runOrderProvisioning };
+module.exports = {
+  provisionPaidUser,
+  renewPaidUser,
+  fetchRemoteUserCount,
+  runOrderProvisioning,
+  creditTokens,
+  runTokenOrderCrediting,
+};

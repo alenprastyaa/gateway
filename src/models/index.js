@@ -6,6 +6,8 @@ const TargetVps = require("./TargetVps")(sequelize, DataTypes);
 const PackageMapping = require("./PackageMapping")(sequelize, DataTypes);
 const PaymentOrder = require("./PaymentOrder")(sequelize, DataTypes);
 const AdminUser = require("./AdminUser")(sequelize, DataTypes);
+const TokenPackage = require("./TokenPackage")(sequelize, DataTypes);
+const TokenOrder = require("./TokenOrder")(sequelize, DataTypes);
 
 // Explicit `as` aliases everywhere below: Sequelize's default alias guessing
 // singularizes "TargetVps" to "TargetVp" (it treats the trailing "s" as a
@@ -24,6 +26,12 @@ PaymentOrder.belongsTo(PackagePlan, { foreignKey: "package_plan_id", as: "packag
 TargetVps.hasMany(PaymentOrder, { foreignKey: "target_vps_id", as: "paymentOrders" });
 PaymentOrder.belongsTo(TargetVps, { foreignKey: "target_vps_id", as: "targetVps" });
 
+TokenPackage.hasMany(TokenOrder, { foreignKey: "token_package_id", as: "tokenOrders" });
+TokenOrder.belongsTo(TokenPackage, { foreignKey: "token_package_id", as: "tokenPackage" });
+
+TargetVps.hasMany(TokenOrder, { foreignKey: "target_vps_id", as: "tokenOrders" });
+TokenOrder.belongsTo(TargetVps, { foreignKey: "target_vps_id", as: "targetVps" });
+
 module.exports = {
   sequelize,
   PackagePlan,
@@ -31,4 +39,6 @@ module.exports = {
   PackageMapping,
   PaymentOrder,
   AdminUser,
+  TokenPackage,
+  TokenOrder,
 };

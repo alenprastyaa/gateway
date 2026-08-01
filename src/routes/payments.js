@@ -1,10 +1,10 @@
 const express = require("express");
 const crypto = require("crypto");
 const rateLimit = require("express-rate-limit");
-const { PackagePlan, TargetVps, PackageMapping, PaymentOrder } = require("../models");
+const { PackagePlan, TargetVps, PackageMapping, PaymentOrder, TokenOrder } = require("../models");
 const { createIpaymuRedirectPayment, verifyIpaymuCallbackSignature } = require("../lib/ipaymu");
 const { pickActiveTarget } = require("../lib/quota");
-const { runOrderProvisioning } = require("../lib/provisioning");
+const { runOrderProvisioning, runTokenOrderCrediting } = require("../lib/provisioning");
 
 const router = express.Router();
 
@@ -109,8 +109,24 @@ router.post("/ipaymu/checkout", checkoutLimiter, async (req, res, next) => {
 
 router.get("/status/:referenceId", async (req, res, next) => {
   try {
+    const referenceId = String(req.params.referenceId || "");
+    if (referenceId.startsWith("TOK-")) {
+      const order = await TokenOrder.findOne({ where: { reference_id: referenceId } });
+      if (!order) {
+        return res.status(404).json({ message: "Order pembayaran tidak ditemukan." });
+      }
+      return res.json({
+        reference_id: order.reference_id,
+        status: order.status,
+        provisioning_status: order.credit_status,
+        provisioning_last_error: order.credit_last_error || null,
+        token_amount: order.token_amount,
+        updatedAt: order.updatedAt,
+      });
+    }
+
     const order = await PaymentOrder.findOne({
-      where: { reference_id: req.params.referenceId },
+      where: { reference_id: referenceId },
     });
     if (!order) {
       return res.status(404).json({ message: "Order pembayaran tidak ditemukan." });
@@ -155,14 +171,20 @@ router.post("/ipaymu/notify", async (req, res, next) => {
       return res.status(400).json({ success: false, message: "reference_id tidak ditemukan." });
     }
 
-    const order = await PaymentOrder.findOne({ where: { reference_id: referenceId } });
+    // Token top-up orders use a distinct reference prefix (TOK-) so this one
+    // webhook URL — the only notifyUrl iPaymu is configured with — can route
+    // to the right table and the right post-payment action.
+    const isTokenOrder = referenceId.startsWith("TOK-");
+    const OrderModel = isTokenOrder ? TokenOrder : PaymentOrder;
+
+    const order = await OrderModel.findOne({ where: { reference_id: referenceId } });
     if (!order) {
       return res.status(404).json({ success: false, message: "Order pembayaran tidak ditemukan." });
     }
 
-    // Idempotency: don't re-run provisioning on webhook retries once we've
-    // already recorded this order as paid (iPaymu has no request-id header
-    // like DOKU does, so we dedupe on the status transition itself).
+    // Idempotency: don't re-run provisioning/crediting on webhook retries
+    // once we've already recorded this order as paid (iPaymu has no
+    // request-id header like DOKU does, so we dedupe on the status transition).
     if (order.status === "paid") {
       order.callback_payloads = [
         ...(Array.isArray(order.callback_payloads) ? order.callback_payloads : []),
@@ -186,17 +208,21 @@ router.post("/ipaymu/notify", async (req, res, next) => {
     ];
     await order.save();
 
-    // Ack iPaymu immediately, then provision in the background — mirrors the
-    // tiktok-bisnis DOKU notify handler's setImmediate pattern (app.js:8166),
+    // Ack iPaymu immediately, then provision/credit in the background — mirrors
+    // the tiktok-bisnis DOKU notify handler's setImmediate pattern (app.js:8166),
     // so a slow/unreachable backend VPS never delays or fails the webhook ack.
     res.json({ success: true });
 
     if (paid) {
       setImmediate(async () => {
         try {
-          await runOrderProvisioning(order);
+          if (isTokenOrder) {
+            await runTokenOrderCrediting(order);
+          } else {
+            await runOrderProvisioning(order);
+          }
         } catch (e) {
-          console.error("Provisioning error for order", order.reference_id, e);
+          console.error("Provisioning/crediting error for order", order.reference_id, e);
         }
       });
     }

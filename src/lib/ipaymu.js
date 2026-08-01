@@ -16,7 +16,7 @@ function createIpaymuSignature(method, payload) {
   return crypto.createHmac("sha256", env.IPAYMU_API_KEY).update(stringToSign).digest("hex");
 }
 
-async function createIpaymuRedirectPayment(req, { plan, order, buyer }) {
+async function createIpaymuRedirectPayment(req, { plan, order, buyer, overrideUrls }) {
   if (!env.IPAYMU_VA || !env.IPAYMU_API_KEY) {
     throw new Error("Konfigurasi iPaymu belum lengkap di .env.");
   }
@@ -28,6 +28,7 @@ async function createIpaymuRedirectPayment(req, { plan, order, buyer }) {
     description: [plan.description || `Pembelian paket ${plan.name}`],
     referenceId: order.reference_id,
     ...buildPaymentCallbackUrls(req, order.reference_id),
+    ...(overrideUrls || {}),
     buyerName: buyer.name,
     buyerEmail: buyer.email,
     buyerPhone: buyer.phone,

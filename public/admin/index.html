@@ -78,6 +78,8 @@
       <button data-target="section-paket" class="nav-btn block w-full rounded-lg px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 transition">Paket</button>
       <button data-target="section-mapping" class="nav-btn block w-full rounded-lg px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 transition">Sambungan</button>
       <button data-target="section-orders" class="nav-btn block w-full rounded-lg px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 transition">Pendaftaran</button>
+      <button data-target="section-token-paket" class="nav-btn block w-full rounded-lg px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 transition">Paket Token</button>
+      <button data-target="section-token-orders" class="nav-btn block w-full rounded-lg px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 transition">Top-up Token</button>
       <button data-target="section-akun" class="nav-btn block w-full rounded-lg px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 transition">Akun</button>
     </nav>
 
@@ -306,6 +308,74 @@
         </div>
       </section>
 
+      <!-- Token Packages -->
+      <section id="section-token-paket" class="section-panel" style="display:none">
+        <p class="text-sm text-slate-900">Paket top-up saldo Claude Code — dibeli langsung oleh user yang sudah login di tiktok-bisnis, bukan dari landing page ini.</p>
+
+        <div class="mt-6 overflow-hidden rounded-xl border border-slate-200">
+          <table class="w-full text-left text-sm">
+            <thead class="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-900">
+              <tr>
+                <th class="px-4 py-3">Paket</th>
+                <th class="px-4 py-3">Harga</th>
+                <th class="px-4 py-3">Jumlah Token</th>
+                <th class="px-4 py-3">Tampil</th>
+                <th class="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody id="token-packages-table-body" class="divide-y divide-slate-100"></tbody>
+          </table>
+          <div id="token-packages-empty" class="p-8 text-center text-sm font-semibold text-slate-900" style="display:none">Belum ada paket token.</div>
+        </div>
+
+        <div class="mt-6 rounded-xl border border-slate-200 p-6">
+          <p id="token-package-form-title" class="text-sm font-extrabold text-slate-900">Tambah paket token</p>
+          <form id="token-package-form" class="mt-5 space-y-4">
+            <input type="hidden" id="token-package-editing-id" />
+            <div>
+              <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Nama paket</label>
+              <input type="text" id="token-package-name" placeholder="Paket Token 30rb" required class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" />
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Harga (Rp)</label>
+                <input type="number" id="token-package-price" placeholder="30000" required class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" />
+              </div>
+              <div>
+                <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Jumlah token</label>
+                <input type="number" id="token-package-amount" placeholder="500000" required class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" />
+              </div>
+            </div>
+            <div>
+              <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-900">Deskripsi</label>
+              <input type="text" id="token-package-description" placeholder="Top-up saldo Claude Code" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" />
+            </div>
+            <label class="flex items-center gap-2 text-sm font-bold text-slate-900">
+              <input type="checkbox" id="token-package-is-active" checked class="h-4 w-4 rounded border-slate-300 accent-slate-900" /> Tampilkan ke user
+            </label>
+            <div class="flex gap-2 pt-1">
+              <button type="submit" id="token-package-submit-btn" class="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800">Tambah Paket Token</button>
+              <button type="button" id="token-package-cancel-btn" style="display:none" class="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-bold text-slate-900 transition hover:border-slate-400">Batal</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Token Orders -->
+      <section id="section-token-orders" class="section-panel" style="display:none">
+        <p class="text-sm text-slate-900">Riwayat top-up token: status bayar dan status penambahan saldo ke akun user.</p>
+
+        <div class="mt-6 overflow-hidden rounded-xl border border-slate-200">
+          <table class="w-full text-left text-sm">
+            <thead class="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-900">
+              <tr><th class="px-4 py-3">Kode</th><th class="px-4 py-3">User ID</th><th class="px-4 py-3">Paket</th><th class="px-4 py-3">Bayar</th><th class="px-4 py-3">Saldo</th><th class="px-4 py-3">Server</th><th class="px-4 py-3"></th></tr>
+            </thead>
+            <tbody id="token-orders-table-body" class="divide-y divide-slate-100"></tbody>
+          </table>
+          <div id="token-orders-empty" class="p-8 text-center text-sm font-semibold text-slate-900" style="display:none">Belum ada top-up.</div>
+        </div>
+      </section>
+
       <!-- Akun -->
       <section id="section-akun" class="section-panel" style="display:none">
         <p class="text-sm text-slate-900">Ganti password akun admin yang sedang dipakai untuk login.</p>
@@ -345,6 +415,8 @@ const PAGE_TITLES = {
   "section-paket": "Paket",
   "section-mapping": "Sambungan",
   "section-orders": "Pendaftaran",
+  "section-token-paket": "Paket Token",
+  "section-token-orders": "Top-up Token",
   "section-akun": "Akun",
 };
 
@@ -707,6 +779,129 @@ document.getElementById("mapping-form").addEventListener("submit", async (e) => 
   }
 });
 
+// --- Token Packages ---
+
+let tokenPackagesCache = [];
+
+async function loadTokenPackages() {
+  const { data } = await api("/api/admin/token-packages");
+  tokenPackagesCache = data;
+  const tbody = document.getElementById("token-packages-table-body");
+  tbody.innerHTML = "";
+  document.getElementById("token-packages-empty").style.display = data.length ? "none" : "block";
+  data.forEach((p) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="px-4 py-3 font-bold text-slate-900">${escapeHtml(p.name)}</td>
+      <td class="px-4 py-3">Rp ${Number(p.price).toLocaleString("id-ID")}</td>
+      <td class="px-4 py-3">${Number(p.token_amount).toLocaleString("id-ID")} token</td>
+      <td class="px-4 py-3">${p.is_active ? statusBadge("active") : statusBadge("disabled")}</td>
+      <td class="px-4 py-3">
+        <div class="flex justify-end gap-1.5">
+          ${btnSecondary("Edit", `data-id="${p.id}" class="edit-token-package-btn"`)}
+          ${btnDanger("Hapus", `data-id="${p.id}" class="delete-token-package-btn"`)}
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  document.querySelectorAll(".edit-token-package-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const p = tokenPackagesCache.find((x) => x.id === Number(btn.dataset.id));
+      if (!p) return;
+      document.getElementById("token-package-editing-id").value = p.id;
+      document.getElementById("token-package-name").value = p.name;
+      document.getElementById("token-package-price").value = p.price;
+      document.getElementById("token-package-amount").value = p.token_amount;
+      document.getElementById("token-package-description").value = p.description || "";
+      document.getElementById("token-package-is-active").checked = !!p.is_active;
+      document.getElementById("token-package-form-title").textContent = `Mengedit ${p.name}`;
+      document.getElementById("token-package-submit-btn").textContent = "Simpan Perubahan";
+      document.getElementById("token-package-cancel-btn").style.display = "inline-block";
+      document.getElementById("token-package-form").scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  });
+
+  document.querySelectorAll(".delete-token-package-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Hapus paket token ini?")) return;
+      try {
+        await api(`/api/admin/token-packages/${btn.dataset.id}`, { method: "DELETE" });
+        loadTokenPackages();
+      } catch (e) {
+        showMessage(e);
+      }
+    });
+  });
+}
+
+function resetTokenPackageForm() {
+  document.getElementById("token-package-form").reset();
+  document.getElementById("token-package-editing-id").value = "";
+  document.getElementById("token-package-is-active").checked = true;
+  document.getElementById("token-package-form-title").textContent = "Tambah paket token";
+  document.getElementById("token-package-submit-btn").textContent = "Tambah Paket Token";
+  document.getElementById("token-package-cancel-btn").style.display = "none";
+}
+
+document.getElementById("token-package-cancel-btn").addEventListener("click", resetTokenPackageForm);
+
+document.getElementById("token-package-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const editingId = document.getElementById("token-package-editing-id").value;
+  const body = {
+    name: document.getElementById("token-package-name").value,
+    price: document.getElementById("token-package-price").value,
+    token_amount: document.getElementById("token-package-amount").value,
+    description: document.getElementById("token-package-description").value,
+    is_active: document.getElementById("token-package-is-active").checked,
+  };
+  try {
+    if (editingId) {
+      await api(`/api/admin/token-packages/${editingId}`, { method: "PUT", body: JSON.stringify(body) });
+    } else {
+      await api("/api/admin/token-packages", { method: "POST", body: JSON.stringify(body) });
+    }
+    resetTokenPackageForm();
+    loadTokenPackages();
+  } catch (err) {
+    showMessage(err);
+  }
+});
+
+// --- Token Orders ---
+
+async function loadTokenOrders() {
+  const { data } = await api("/api/admin/token-orders");
+  const tbody = document.getElementById("token-orders-table-body");
+  tbody.innerHTML = "";
+  document.getElementById("token-orders-empty").style.display = data.length ? "none" : "block";
+  data.forEach((o) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="px-4 py-3 font-mono text-xs font-medium text-slate-900">${escapeHtml(o.reference_id)}</td>
+      <td class="px-4 py-3 text-slate-900">#${o.remote_user_id}</td>
+      <td class="px-4 py-3 text-slate-900">${o.tokenPackage ? escapeHtml(o.tokenPackage.name) : "-"}</td>
+      <td class="px-4 py-3">${statusBadge(o.status)}</td>
+      <td class="px-4 py-3">${statusBadge(o.credit_status)}${o.credit_last_error ? `<div class="mt-1 text-xs font-semibold text-red-600">${escapeHtml(o.credit_last_error)}</div>` : ""}</td>
+      <td class="px-4 py-3 text-slate-900">${o.targetVps ? escapeHtml(o.targetVps.name) : "-"}</td>
+      <td class="px-4 py-3">${o.status === "paid" && o.credit_status === "failed" ? btnPrimary("Coba Lagi", `data-id="${o.id}" class="retry-token-btn"`) : ""}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.querySelectorAll(".retry-token-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      try {
+        await api(`/api/admin/token-orders/${btn.dataset.id}/retry-credit`, { method: "POST" });
+        loadTokenOrders();
+      } catch (e) {
+        showMessage(e);
+      }
+    });
+  });
+}
+
 // --- Orders ---
 
 async function loadOrders() {
@@ -778,6 +973,8 @@ async function showApp() {
   await loadPackages();
   await loadMappings();
   await loadOrders();
+  await loadTokenPackages();
+  await loadTokenOrders();
 }
 
 if (token) showApp();
