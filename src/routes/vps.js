@@ -49,7 +49,11 @@ router.post("/token-checkout", checkoutLimiter, authenticateVps, async (req, res
     const ipaymuResult = await createIpaymuRedirectPayment(req, {
       plan: { name: pkg.name, initial_price: pkg.price, description: pkg.description },
       order: { reference_id: referenceId, amount },
-      buyer: { name: `User #${remoteUserId}`, email: buyerEmail || `user${remoteUserId}@${returnBase.replace(/^https?:\/\//, "")}`, phone: "" },
+      // iPaymu rejects checkout requests with an empty buyerPhone (surfaced
+      // misleadingly as "unauthorized signature" rather than a validation
+      // error) — this flow never collects a phone since the user is already
+      // logged in on the backend VPS, so send a fixed placeholder instead.
+      buyer: { name: `User #${remoteUserId}`, email: buyerEmail || `user${remoteUserId}@${returnBase.replace(/^https?:\/\//, "")}`, phone: "081200000000" },
       // notifyUrl is intentionally NOT overridden here — it always stays the
       // gateway's own /api/payments/ipaymu/notify (see buildPaymentCallbackUrls).
       overrideUrls: {
