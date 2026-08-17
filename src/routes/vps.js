@@ -1,8 +1,9 @@
 const express = require("express");
 const crypto = require("crypto");
 const rateLimit = require("express-rate-limit");
-const { TokenPackage, TokenOrder } = require("../models");
+const { TokenPackage, TokenOrder, Customer } = require("../models");
 const { createIpaymuRedirectPayment } = require("../lib/ipaymu");
+const { verifyPassword } = require("../lib/auth");
 const authenticateVps = require("../middleware/authenticateVps");
 
 const router = express.Router();
@@ -10,6 +11,19 @@ const router = express.Router();
 const checkoutLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Tighter than checkoutLimiter on purpose — this endpoint exists to answer
+// "does this password match", which is exactly the kind of thing brute-force
+// guessing targets. authenticateVps already requires a valid X-Internal-Secret
+// before this ever runs (so it's not open to the whole internet), but a
+// compromised/leaked backend-VPS secret shouldn't also buy unlimited password
+// guesses against every customer account.
+const verifyLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -81,6 +95,41 @@ router.post("/token-checkout", checkoutLimiter, authenticateVps, async (req, res
       reference_id: order.reference_id,
       payment_url: order.ipaymu_payment_url,
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Called server-to-server by a tiktok-bisnis backend VPS to verify a
+// customer's login password (2026-08-17, user-identity slice) — the
+// customer/password pair this checks against was mirrored here by
+// src/lib/provisioning.js's upsertCustomerCredential, from the SAME
+// plaintext password the backend VPS itself generated at provisioning
+// time. This endpoint deliberately returns nothing beyond {valid, reason} —
+// no user profile, no billing/subscription fields. The backend VPS already
+// owns and correctly maintains all of that itself (grantSubscriptionAccess
+// etc.); duplicating it here would just create a second copy that can drift.
+router.post("/verify-login", verifyLoginLimiter, authenticateVps, async (req, res, next) => {
+  try {
+    const username = String(req.body?.username || "").trim();
+    const password = String(req.body?.password || "");
+    if (!username || !password) {
+      return res.status(400).json({ valid: false, reason: "missing_credentials" });
+    }
+
+    const customer = await Customer.findOne({
+      where: { target_vps_id: req.targetVps.id, username },
+    });
+    if (!customer) {
+      return res.status(404).json({ valid: false, reason: "user_not_found" });
+    }
+
+    const ok = await verifyPassword(password, customer.password_hash);
+    if (!ok) {
+      return res.status(401).json({ valid: false, reason: "invalid_password" });
+    }
+
+    res.json({ valid: true });
   } catch (e) {
     next(e);
   }
