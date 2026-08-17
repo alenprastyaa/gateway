@@ -143,7 +143,7 @@
       <section id="section-server" class="section-panel" style="display:none">
         <p class="text-sm text-slate-900">Server tempat aplikasi pelanggan berjalan. Minimal satu server harus ada.</p>
 
-        <div class="mt-6 overflow-hidden rounded-xl border border-slate-200">
+        <div class="mt-6 overflow-x-auto rounded-xl border border-slate-200">
           <table class="w-full text-left text-sm">
             <thead class="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-900">
               <tr>
@@ -199,7 +199,7 @@
       <section id="section-paket" class="section-panel" style="display:none">
         <p class="text-sm text-slate-900">Paket harga yang tampil dan bisa dibeli di landing page.</p>
 
-        <div class="mt-6 overflow-hidden rounded-xl border border-slate-200">
+        <div class="mt-6 overflow-x-auto rounded-xl border border-slate-200">
           <table class="w-full text-left text-sm">
             <thead class="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-900">
               <tr>
@@ -259,7 +259,7 @@
           Tiap server punya nomor ID paket sendiri. Sambungkan paket di panel ini ke ID yang sesuai di server tujuan — cek di panel admin paket server tersebut.
         </p>
 
-        <div class="mt-6 overflow-hidden rounded-xl border border-slate-200">
+        <div class="mt-6 overflow-x-auto rounded-xl border border-slate-200">
           <table class="w-full text-left text-sm">
             <thead class="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-900">
               <tr><th class="px-4 py-3">Paket</th><th class="px-4 py-3">Server</th><th class="px-4 py-3">ID di Server</th></tr>
@@ -297,7 +297,7 @@
       <section id="section-orders" class="section-panel" style="display:none">
         <p class="text-sm text-slate-900">Riwayat checkout, status bayar, dan status pembuatan akun.</p>
 
-        <div class="mt-6 overflow-hidden rounded-xl border border-slate-200">
+        <div class="mt-6 overflow-x-auto rounded-xl border border-slate-200">
           <table class="w-full text-left text-sm">
             <thead class="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-900">
               <tr><th class="px-4 py-3">Kode</th><th class="px-4 py-3">Pembeli</th><th class="px-4 py-3">Bayar</th><th class="px-4 py-3">Akun</th><th class="px-4 py-3">Server</th><th class="px-4 py-3"></th></tr>
@@ -312,7 +312,7 @@
       <section id="section-token-paket" class="section-panel" style="display:none">
         <p class="text-sm text-slate-900">Paket top-up saldo Claude Code — dibeli langsung oleh user yang sudah login di tiktok-bisnis, bukan dari landing page ini.</p>
 
-        <div class="mt-6 overflow-hidden rounded-xl border border-slate-200">
+        <div class="mt-6 overflow-x-auto rounded-xl border border-slate-200">
           <table class="w-full text-left text-sm">
             <thead class="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-900">
               <tr>
@@ -365,7 +365,7 @@
       <section id="section-token-orders" class="section-panel" style="display:none">
         <p class="text-sm text-slate-900">Riwayat top-up token: status bayar dan status penambahan saldo ke akun user.</p>
 
-        <div class="mt-6 overflow-hidden rounded-xl border border-slate-200">
+        <div class="mt-6 overflow-x-auto rounded-xl border border-slate-200">
           <table class="w-full text-left text-sm">
             <thead class="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-900">
               <tr><th class="px-4 py-3">Kode</th><th class="px-4 py-3">User ID</th><th class="px-4 py-3">Paket</th><th class="px-4 py-3">Bayar</th><th class="px-4 py-3">Saldo</th><th class="px-4 py-3">Server</th><th class="px-4 py-3"></th></tr>
@@ -545,7 +545,7 @@ async function loadVps() {
       <td class="px-4 py-3">${v.current_count}</td>
       <td class="px-4 py-3">${statusBadge(v.status)}</td>
       <td class="px-4 py-3">
-        <div class="flex justify-end gap-1.5">
+        <div class="flex justify-end gap-1.5 whitespace-nowrap">
           ${v.status !== "active" ? btnPrimary("Jadikan Aktif", `data-id="${v.id}" class="activate-btn"`) : ""}
           ${btnSecondary("Edit", `data-id="${v.id}" class="edit-vps-btn"`)}
           ${btnDanger("Hapus", `data-id="${v.id}" class="delete-vps-btn"`)}
@@ -653,7 +653,7 @@ async function loadPackages() {
       <td class="px-4 py-3">${p.max_projects}</td>
       <td class="px-4 py-3">${p.is_active ? statusBadge("active") : statusBadge("disabled")}</td>
       <td class="px-4 py-3">
-        <div class="flex justify-end gap-1.5">
+        <div class="flex justify-end gap-1.5 whitespace-nowrap">
           ${btnSecondary("Edit", `data-id="${p.id}" class="edit-package-btn"`)}
           ${btnDanger("Hapus", `data-id="${p.id}" class="delete-package-btn"`)}
         </div>
@@ -797,7 +797,7 @@ async function loadTokenPackages() {
       <td class="px-4 py-3">${Number(p.token_amount).toLocaleString("id-ID")} token</td>
       <td class="px-4 py-3">${p.is_active ? statusBadge("active") : statusBadge("disabled")}</td>
       <td class="px-4 py-3">
-        <div class="flex justify-end gap-1.5">
+        <div class="flex justify-end gap-1.5 whitespace-nowrap">
           ${btnSecondary("Edit", `data-id="${p.id}" class="edit-token-package-btn"`)}
           ${btnDanger("Hapus", `data-id="${p.id}" class="delete-token-package-btn"`)}
         </div>
