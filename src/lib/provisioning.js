@@ -1,7 +1,43 @@
 const axios = require("axios");
 const { decryptSecret } = require("./crypto");
 const { recordProvisionedUser } = require("./quota");
-const { TargetVps } = require("../models");
+const { hashPassword } = require("./auth");
+const { TargetVps, Customer } = require("../models");
+
+// 2026-08-17 (user-identity slice): mirrors the SAME plaintext password the
+// backend VPS generated for this account (provision-paid-user/renew-paid-user
+// now both return it in their response `password` field) into this gateway's
+// own `customers` table, hashed. Best-effort on purpose — the money is
+// already collected and the account already exists on the backend VPS by
+// the time this runs, so a failure here must never unwind or fail the
+// caller; it only means this gateway's own login-verification copy is
+// temporarily stale, which self-heals on the next provision/renew call for
+// the same account (see the `already_existed`/renewal branches in
+// internal.routes.js on the backend VPS, which resend the same password on
+// every call for exactly this reason).
+async function upsertCustomerCredential(targetVps, { email, username, password }) {
+  if (!username || !password) return;
+  try {
+    const password_hash = await hashPassword(password);
+    const existing = await Customer.findOne({
+      where: { target_vps_id: targetVps.id, username },
+    });
+    if (existing) {
+      existing.email = email || existing.email;
+      existing.password_hash = password_hash;
+      await existing.save();
+    } else {
+      await Customer.create({
+        target_vps_id: targetVps.id,
+        email: email || "",
+        username,
+        password_hash,
+      });
+    }
+  } catch (e) {
+    console.error("[provisioning] gagal menyimpan credential customer:", e.message);
+  }
+}
 
 // tiktok-bisnis namespaces its own API under /iniq/api/... (app.js's
 // ROOT_APP_PATH) to avoid clashing with hosted child-project routes at the
@@ -30,6 +66,11 @@ async function provisionPaidUser(targetVps, { referenceId, buyer, remotePackageI
   );
 
   if (response.status >= 200 && response.status < 300 && response.data?.success) {
+    await upsertCustomerCredential(targetVps, {
+      email: response.data.user?.email || buyer.email,
+      username: response.data.user?.username,
+      password: response.data.password,
+    });
     return response.data;
   }
 
@@ -56,6 +97,11 @@ async function renewPaidUser(targetVps, { referenceId, buyer, remotePackageId })
   );
 
   if (response.status >= 200 && response.status < 300 && response.data?.success) {
+    await upsertCustomerCredential(targetVps, {
+      email: response.data.user?.email || buyer.email,
+      username: response.data.user?.username,
+      password: response.data.password,
+    });
     return response.data;
   }
 
