@@ -277,4 +277,5 @@ module.exports = {
   runOrderProvisioning,
   creditTokens,
   runTokenOrderCrediting,
+  upsertCustomerCredential,
 };
