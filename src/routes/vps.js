@@ -7,6 +7,8 @@ const {
   Customer,
   ProductionPricing,
   ProductionOrder,
+  PackagePlan,
+  PackageMapping,
 } = require("../models");
 const { createIpaymuRedirectPayment } = require("../lib/ipaymu");
 const { verifyPassword } = require("../lib/auth");
@@ -54,9 +56,10 @@ function generateProductionReferenceId() {
     .toUpperCase()}`;
 }
 
-// The one place the production price is read. Always row 1 — see
-// ProductionPricing's header for why this is a table and why it lives here
-// rather than on the backend VPS.
+// The single fallback price. Always row 1 — see ProductionPricing's header
+// for why this is a table and why it lives here rather than on the backend
+// VPS. Kept alive as the FLOOR of the resolution order below, not the primary
+// source anymore (2026-09-05) — see resolveProductionUnitPrice.
 async function getProductionYearlyPrice() {
   const row = await ProductionPricing.findByPk(1);
   const price = Number(row?.yearly_price);
@@ -68,6 +71,78 @@ async function getProductionYearlyPrice() {
   }
   return price;
 }
+
+// What one production year costs for THIS account, on THIS VPS (2026-09-05).
+//
+// Per-package pricing reuses PackagePlan.renewal_price — the "Harga
+// Perpanjangan" field the admin CMS has always had for package plans, sitting
+// on the same object the registration flow already reads initial_price from.
+// It was administrative furniture until now: never consulted anywhere to
+// compute an actual charge. This is the first thing that reads it.
+//
+// The resolution order mirrors the one already established on the backend
+// VPS for project/production quotas (per-account override -> package ->
+// floor, see getProjectQuota/getProductionQuota in
+// src/services/billing/production.js): specific overrides general, and there
+// is always a floor so no account is ever unable to pay.
+//
+//   1. The account's package, resolved via PackageMapping — remotePackageId
+//      is the VPS's OWN local package id (opaque to the gateway), the exact
+//      value PackageMapping.remote_package_id exists to translate into a
+//      package_plan_id this gateway understands.
+//   2. ProductionPricing.yearly_price, the global fallback — for accounts
+//      with no package, an unmapped package, or a plan whose renewal_price is
+//      0. Zero is read as "not configured for self-serve" rather than "free
+//      this year": Custom/negotiated plans default to 0 precisely because
+//      their price is set by hand, not through checkout, and charging Rp0
+//      through a shared merchant account for a real product would be a
+//      revenue bug wearing the shape of a feature.
+//
+// Never throws on a missing/unmapped package — that is an expected shape
+// (plenty of accounts have no package_id at all), not a configuration error.
+// It throws only if the floor itself is unset, same as before.
+async function resolveProductionUnitPrice(targetVps, remotePackageId) {
+  if (remotePackageId) {
+    const mapping = await PackageMapping.findOne({
+      where: { target_vps_id: targetVps.id, remote_package_id: remotePackageId },
+    });
+    if (mapping) {
+      const plan = await PackagePlan.findByPk(mapping.package_plan_id);
+      const price = Number(plan?.renewal_price);
+      if (Number.isFinite(price) && price > 0) {
+        return price;
+      }
+    }
+  }
+  return getProductionYearlyPrice();
+}
+
+// What THIS account would actually pay for a production year, for display
+// before checkout (2026-09-05).
+//
+// Found missing by testing, not by design review: the renewal page showed a
+// flat Rp150.000 for every account, because it read the OLD public endpoint
+// below — unauthenticated, so it has no idea which VPS or which account is
+// asking, and can only ever return the global fallback row. Once pricing
+// became per-package, that page was quietly wrong for every account whose
+// package has its own renewal_price: the number shown before payment did not
+// match the number iPaymu would actually charge.
+//
+// This calls the exact same resolveProductionUnitPrice checkout uses, so the
+// display price and the charged price cannot drift apart — there is no
+// second implementation of "what does this account pay" to keep in sync.
+// GET and no checkoutLimiter on purpose: this does nothing but read two
+// rows, unlike the checkout routes below which call out to iPaymu and create
+// a real order.
+router.get("/production-pricing", authenticateVps, async (req, res, next) => {
+  try {
+    const remotePackageId = Number.parseInt(req.query?.package_id, 10) || null;
+    const price = await resolveProductionUnitPrice(req.targetVps, remotePackageId);
+    res.json({ yearly_price: price });
+  } catch (e) {
+    next(e);
+  }
+});
 
 // Called server-to-server by an already-registered tiktok-bisnis VPS on
 // behalf of one of its own already-logged-in users (never by a browser
@@ -143,14 +218,22 @@ router.post("/token-checkout", checkoutLimiter, authenticateVps, async (req, res
 // pays once; three apps would otherwise mean three iPaymu checkouts, three
 // payment fees, and three chances to abandon the flow halfway.
 //
-// The caller sends project ids and nothing else about money. Price and total
-// are computed HERE, from the pricing row — the backend VPS never states an
-// amount, because the iPaymu merchant account is shared and a VPS that could
-// name its own price could charge anything through it.
+// The caller sends project ids, which package the account is on, and
+// nothing else about money. Price and total are computed HERE, from the
+// package's renewal_price (or the global fallback) — the backend VPS never
+// states an amount, because the iPaymu merchant account is shared and a VPS
+// that could name its own price could charge anything through it.
 router.post("/production-checkout", checkoutLimiter, authenticateVps, async (req, res, next) => {
   try {
     const remoteUserId = Number.parseInt(req.body?.user_id, 10);
     const buyerEmail = String(req.body?.buyer_email || "").trim() || null;
+    /* The VPS's own local package id for this account — opaque here, just
+     * the key resolveProductionUnitPrice looks up in PackageMapping. null
+     * (not 0) when the account has no package, which the caller must send
+     * as the raw column value rather than a resolved default so an unmapped
+     * account is visibly unmapped instead of silently landing on some
+     * default plan's price. */
+    const remotePackageId = Number.parseInt(req.body?.package_id, 10) || null;
 
     /* Deduplicated before counting: the same id sent twice must not be billed
      * twice, and it would extend that one project only once anyway — the
@@ -178,7 +261,7 @@ router.post("/production-checkout", checkoutLimiter, authenticateVps, async (req
         .json({ message: "Maksimal 25 aplikasi dalam satu transaksi perpanjangan." });
     }
 
-    const unitPrice = await getProductionYearlyPrice();
+    const unitPrice = await resolveProductionUnitPrice(req.targetVps, remotePackageId);
     const amount = unitPrice * projectIds.length;
 
     const referenceId = generateProductionReferenceId();
