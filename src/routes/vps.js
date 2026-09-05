@@ -117,6 +117,33 @@ async function resolveProductionUnitPrice(targetVps, remotePackageId) {
   return getProductionYearlyPrice();
 }
 
+// What THIS account would actually pay for a production year, for display
+// before checkout (2026-09-05).
+//
+// Found missing by testing, not by design review: the renewal page showed a
+// flat Rp150.000 for every account, because it read the OLD public endpoint
+// below — unauthenticated, so it has no idea which VPS or which account is
+// asking, and can only ever return the global fallback row. Once pricing
+// became per-package, that page was quietly wrong for every account whose
+// package has its own renewal_price: the number shown before payment did not
+// match the number iPaymu would actually charge.
+//
+// This calls the exact same resolveProductionUnitPrice checkout uses, so the
+// display price and the charged price cannot drift apart — there is no
+// second implementation of "what does this account pay" to keep in sync.
+// GET and no checkoutLimiter on purpose: this does nothing but read two
+// rows, unlike the checkout routes below which call out to iPaymu and create
+// a real order.
+router.get("/production-pricing", authenticateVps, async (req, res, next) => {
+  try {
+    const remotePackageId = Number.parseInt(req.query?.package_id, 10) || null;
+    const price = await resolveProductionUnitPrice(req.targetVps, remotePackageId);
+    res.json({ yearly_price: price });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // Called server-to-server by an already-registered tiktok-bisnis VPS on
 // behalf of one of its own already-logged-in users (never by a browser
 // directly — X-Internal-Secret is a server credential). This is why there's
