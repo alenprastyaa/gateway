@@ -270,6 +270,95 @@ async function runOrderProvisioning(order) {
   }
 }
 
+async function extendProduction(targetVps, { referenceId, userId, projectIds }) {
+  const secret = decryptSecret(targetVps.internal_secret_encrypted);
+
+  const response = await axios.post(
+    endpointUrl(targetVps, "/api/internal/extend-production"),
+    {
+      reference_id: referenceId,
+      user_id: userId,
+      project_ids: projectIds,
+    },
+    {
+      headers: { "X-Internal-Secret": secret },
+      // Longer than creditTokens' 15s: this writes one row per project rather
+      // than incrementing a single balance, so the work scales with the size
+      // of the order.
+      timeout: 30000,
+      validateStatus: () => true,
+    }
+  );
+
+  if (response.status >= 200 && response.status < 300 && response.data?.success) {
+    return response.data;
+  }
+
+  throw new Error(
+    response.data?.message ||
+      `Perpanjangan produksi gagal dengan status ${response.status} dari ${targetVps.name}.`
+  );
+}
+
+// Same shape as runTokenOrderCrediting, for production-year renewals.
+//
+// Two independent idempotency gates stand between a retried webhook and a
+// free year, and both are needed:
+//   here          extend_status === "succeeded" short-circuits, so a retry
+//                   after a completed extension never calls the VPS again.
+//   backend VPS   records reference_id per project, so even a call that DOES
+//                   arrive twice (a retry after a partial failure, where this
+//                   gate is deliberately open) extends each project once.
+// Money is involved and webhooks are retried by design, so neither gate is
+// redundant with the other — this one is an optimisation, the backend's is
+// the guarantee.
+async function runProductionOrderCrediting(order) {
+  if (order.extend_status === "succeeded") {
+    return { alreadyDone: true, success: true };
+  }
+
+  if (!order.target_vps_id) {
+    order.extend_status = "failed";
+    order.extend_last_error = "Order ini tidak memiliki target VPS.";
+    await order.save();
+    return { alreadyDone: false, success: false };
+  }
+
+  order.extend_status = "pending";
+  order.extend_attempts += 1;
+  await order.save();
+
+  const targetVps = await TargetVps.findByPk(order.target_vps_id);
+  if (!targetVps) {
+    order.extend_status = "failed";
+    order.extend_last_error = "Target VPS pada order ini tidak ditemukan lagi.";
+    await order.save();
+    return { alreadyDone: false, success: false };
+  }
+
+  try {
+    await extendProduction(targetVps, {
+      referenceId: order.reference_id,
+      userId: order.remote_user_id,
+      projectIds: Array.isArray(order.remote_project_ids)
+        ? order.remote_project_ids
+        : [],
+    });
+
+    order.extend_status = "succeeded";
+    order.extended_at = new Date();
+    order.extend_last_error = null;
+    await order.save();
+
+    return { alreadyDone: false, success: true };
+  } catch (e) {
+    order.extend_status = "failed";
+    order.extend_last_error = e.message || "Perpanjangan produksi gagal.";
+    await order.save();
+    return { alreadyDone: false, success: false, error: e.message };
+  }
+}
+
 module.exports = {
   provisionPaidUser,
   renewPaidUser,
@@ -278,4 +367,6 @@ module.exports = {
   creditTokens,
   runTokenOrderCrediting,
   upsertCustomerCredential,
+  extendProduction,
+  runProductionOrderCrediting,
 };
