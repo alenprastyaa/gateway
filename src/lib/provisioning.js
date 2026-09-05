@@ -105,9 +105,16 @@ async function renewPaidUser(targetVps, { referenceId, buyer, remotePackageId })
     return response.data;
   }
 
-  throw new Error(
+  /* The HTTP status rides along on the error because the caller has to tell
+   * ONE failure apart from every other: 404 means the backend VPS has no
+   * account for this email, which is recoverable by registering instead.
+   * Matching on the message text would work today and break the first time
+   * anyone rewords it. */
+  const error = new Error(
     response.data?.message || `Renewal gagal dengan status ${response.status} dari ${targetVps.name}.`
   );
+  error.status = response.status;
+  throw error;
 }
 
 async function creditTokens(targetVps, { referenceId, userId, tokenAmount }) {
@@ -233,20 +240,62 @@ async function runOrderProvisioning(order) {
   }
 
   try {
-    const isRenewal = order.order_type === "renewal";
-    const result = isRenewal
-      ? await renewPaidUser(targetVps, {
+    /* `let`, because a renewal can turn out to be a registration (2026-09-05).
+     *
+     * order_type is decided at CHECKOUT from this gateway's own history: any
+     * email with a previously succeeded order is treated as a renewal forever
+     * after. That reads the wrong source. Whether an account exists is a fact
+     * about the BACKEND VPS, and an account can be deleted there without
+     * anything here changing — after which every future purchase by that
+     * customer was routed to the renewal endpoint, refused because there is
+     * no account to renew, and left as `paid` + `failed`.
+     *
+     * The customer had already been charged by then. Found in production with
+     * three such orders from one buyer across seven weeks: paid three times,
+     * received nothing, no email, no visible trace.
+     *
+     * So a renewal that the VPS answers with 404 is retried as a
+     * registration. That also covers the case checkout-time verification
+     * could not: an account deleted BETWEEN checkout and provisioning.
+     */
+    let isRenewal = order.order_type === "renewal";
+    let result;
+
+    if (isRenewal) {
+      try {
+        result = await renewPaidUser(targetVps, {
           referenceId: order.reference_id,
           buyer: { email: order.buyer_email },
           remotePackageId: order.remote_package_id,
-        })
-      : await provisionPaidUser(targetVps, {
+        });
+      } catch (renewError) {
+        if (renewError.status !== 404) throw renewError;
+
+        console.warn(
+          `[provisioning] order ${order.reference_id}: ${targetVps.name} tidak punya akun ` +
+            `untuk ${order.buyer_email} — diperlakukan sebagai pendaftaran baru.`
+        );
+        /* Corrected on the row too, so the ledger says what actually
+         * happened and the quota bookkeeping below counts it as a creation. */
+        isRenewal = false;
+        order.order_type = "new_registration";
+        result = await provisionPaidUser(targetVps, {
           referenceId: order.reference_id,
           buyer: { name: order.buyer_name, email: order.buyer_email, phone: order.buyer_phone },
           remotePackageId: order.remote_package_id,
           amount: order.amount,
           landingOrderId: order.id,
         });
+      }
+    } else {
+      result = await provisionPaidUser(targetVps, {
+        referenceId: order.reference_id,
+        buyer: { name: order.buyer_name, email: order.buyer_email, phone: order.buyer_phone },
+        remotePackageId: order.remote_package_id,
+        amount: order.amount,
+        landingOrderId: order.id,
+      });
+    }
 
     order.provisioning_status = "succeeded";
     order.remote_user_id = result.user?.id || null;
