@@ -1,10 +1,21 @@
 const express = require("express");
 const crypto = require("crypto");
 const rateLimit = require("express-rate-limit");
-const { PackagePlan, TargetVps, PackageMapping, PaymentOrder, TokenOrder } = require("../models");
+const {
+  PackagePlan,
+  TargetVps,
+  PackageMapping,
+  PaymentOrder,
+  TokenOrder,
+  ProductionOrder,
+} = require("../models");
 const { createIpaymuRedirectPayment, verifyIpaymuCallbackSignature } = require("../lib/ipaymu");
 const { pickActiveTarget } = require("../lib/quota");
-const { runOrderProvisioning, runTokenOrderCrediting } = require("../lib/provisioning");
+const {
+  runOrderProvisioning,
+  runTokenOrderCrediting,
+  runProductionOrderCrediting,
+} = require("../lib/provisioning");
 
 const router = express.Router();
 
@@ -110,6 +121,22 @@ router.post("/ipaymu/checkout", checkoutLimiter, async (req, res, next) => {
 router.get("/status/:referenceId", async (req, res, next) => {
   try {
     const referenceId = String(req.params.referenceId || "");
+    if (referenceId.startsWith("PRJ-")) {
+      const order = await ProductionOrder.findOne({ where: { reference_id: referenceId } });
+      if (!order) {
+        return res.status(404).json({ message: "Order pembayaran tidak ditemukan." });
+      }
+      return res.json({
+        reference_id: order.reference_id,
+        status: order.status,
+        provisioning_status: order.extend_status,
+        provisioning_last_error: order.extend_last_error || null,
+        project_count: order.project_count,
+        amount: order.amount,
+        updatedAt: order.updatedAt,
+      });
+    }
+
     if (referenceId.startsWith("TOK-")) {
       const order = await TokenOrder.findOne({ where: { reference_id: referenceId } });
       if (!order) {
@@ -175,7 +202,13 @@ router.post("/ipaymu/notify", async (req, res, next) => {
     // webhook URL — the only notifyUrl iPaymu is configured with — can route
     // to the right table and the right post-payment action.
     const isTokenOrder = referenceId.startsWith("TOK-");
-    const OrderModel = isTokenOrder ? TokenOrder : PaymentOrder;
+    // PRJ- = production-app year renewal (2026-09-05), same routing trick.
+    const isProductionOrder = referenceId.startsWith("PRJ-");
+    const OrderModel = isTokenOrder
+      ? TokenOrder
+      : isProductionOrder
+      ? ProductionOrder
+      : PaymentOrder;
 
     const order = await OrderModel.findOne({ where: { reference_id: referenceId } });
     if (!order) {
@@ -218,6 +251,8 @@ router.post("/ipaymu/notify", async (req, res, next) => {
         try {
           if (isTokenOrder) {
             await runTokenOrderCrediting(order);
+          } else if (isProductionOrder) {
+            await runProductionOrderCrediting(order);
           } else {
             await runOrderProvisioning(order);
           }
