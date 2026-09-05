@@ -1,5 +1,5 @@
 const express = require("express");
-const { PackagePlan, TokenPackage } = require("../models");
+const { PackagePlan, TokenPackage, ProductionPricing } = require("../models");
 
 const router = express.Router();
 
@@ -22,6 +22,20 @@ router.get("/token-packages", async (req, res, next) => {
       order: [["sort_order", "ASC"]],
     });
     res.json({ data: packages });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// What a backend VPS quotes its customers for a production year (2026-09-05).
+// Read-only and public for the same reason /token-packages is: it is a price
+// list, and the figure a customer is about to be charged should be the figure
+// they were shown. The amount actually charged is still computed on this side
+// at checkout, never taken from a request.
+router.get("/production-pricing", async (req, res, next) => {
+  try {
+    const row = await ProductionPricing.findByPk(1);
+    res.json({ yearly_price: Number(row?.yearly_price) || 0 });
   } catch (e) {
     next(e);
   }

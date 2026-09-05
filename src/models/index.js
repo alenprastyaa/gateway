@@ -8,6 +8,8 @@ const PaymentOrder = require("./PaymentOrder")(sequelize, DataTypes);
 const AdminUser = require("./AdminUser")(sequelize, DataTypes);
 const TokenPackage = require("./TokenPackage")(sequelize, DataTypes);
 const TokenOrder = require("./TokenOrder")(sequelize, DataTypes);
+const ProductionPricing = require("./ProductionPricing")(sequelize, DataTypes);
+const ProductionOrder = require("./ProductionOrder")(sequelize, DataTypes);
 
 // Explicit `as` aliases everywhere below: Sequelize's default alias guessing
 // singularizes "TargetVps" to "TargetVp" (it treats the trailing "s" as a
@@ -32,6 +34,13 @@ TokenOrder.belongsTo(TokenPackage, { foreignKey: "token_package_id", as: "tokenP
 TargetVps.hasMany(TokenOrder, { foreignKey: "target_vps_id", as: "tokenOrders" });
 TokenOrder.belongsTo(TargetVps, { foreignKey: "target_vps_id", as: "targetVps" });
 
+// ProductionPricing has no association on purpose — it is a single-row
+// settings table, not something any order joins to. Orders snapshot the price
+// they were charged (ProductionOrder.unit_price) so editing it later cannot
+// rewrite history.
+TargetVps.hasMany(ProductionOrder, { foreignKey: "target_vps_id", as: "productionOrders" });
+ProductionOrder.belongsTo(TargetVps, { foreignKey: "target_vps_id", as: "targetVps" });
+
 module.exports = {
   sequelize,
   PackagePlan,
@@ -41,4 +50,6 @@ module.exports = {
   AdminUser,
   TokenPackage,
   TokenOrder,
+  ProductionPricing,
+  ProductionOrder,
 };
