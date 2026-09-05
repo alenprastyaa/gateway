@@ -4,10 +4,13 @@ const rateLimit = require("express-rate-limit");
 const {
   TokenPackage,
   TokenOrder,
+  Customer,
   ProductionPricing,
   ProductionOrder,
 } = require("../models");
 const { createIpaymuRedirectPayment } = require("../lib/ipaymu");
+const { verifyPassword } = require("../lib/auth");
+const { upsertCustomerCredential } = require("../lib/provisioning");
 const authenticateVps = require("../middleware/authenticateVps");
 
 const router = express.Router();
@@ -15,6 +18,19 @@ const router = express.Router();
 const checkoutLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Tighter than checkoutLimiter on purpose — this endpoint exists to answer
+// "does this password match", which is exactly the kind of thing brute-force
+// guessing targets. authenticateVps already requires a valid X-Internal-Secret
+// before this ever runs (so it's not open to the whole internet), but a
+// compromised/leaked backend-VPS secret shouldn't also buy unlimited password
+// guesses against every customer account.
+const verifyLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -215,6 +231,71 @@ router.post("/production-checkout", checkoutLimiter, authenticateVps, async (req
       unit_price: order.unit_price,
       project_count: order.project_count,
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Called server-to-server by a tiktok-bisnis backend VPS to verify a
+// customer's login password (2026-08-17, user-identity slice) — the
+// customer/password pair this checks against was mirrored here by
+// src/lib/provisioning.js's upsertCustomerCredential, from the SAME
+// plaintext password the backend VPS itself generated at provisioning
+// time. This endpoint deliberately returns nothing beyond {valid, reason} —
+// no user profile, no billing/subscription fields. The backend VPS already
+// owns and correctly maintains all of that itself (grantSubscriptionAccess
+// etc.); duplicating it here would just create a second copy that can drift.
+router.post("/verify-login", verifyLoginLimiter, authenticateVps, async (req, res, next) => {
+  try {
+    const username = String(req.body?.username || "").trim();
+    const password = String(req.body?.password || "");
+    if (!username || !password) {
+      return res.status(400).json({ valid: false, reason: "missing_credentials" });
+    }
+
+    const customer = await Customer.findOne({
+      where: { target_vps_id: req.targetVps.id, username },
+    });
+    if (!customer) {
+      return res.status(404).json({ valid: false, reason: "user_not_found" });
+    }
+
+    const ok = await verifyPassword(password, customer.password_hash);
+    if (!ok) {
+      return res.status(401).json({ valid: false, reason: "invalid_password" });
+    }
+
+    res.json({ valid: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Called server-to-server (2026-08-22, change-password fix) after the
+// backend VPS's own /api/auth/change-password route has already verified
+// the caller's CURRENT password via /verify-login above — this endpoint
+// trusts that check happened and does not re-verify anything itself, same
+// trust boundary as token-checkout/verify-login (X-Internal-Secret via
+// authenticateVps). Reuses the same upsertCustomerCredential() that
+// provisioning already calls, so this is the one place that ever writes
+// Customer.password_hash, whether at account creation or afterwards.
+router.post("/update-password", verifyLoginLimiter, authenticateVps, async (req, res, next) => {
+  try {
+    const username = String(req.body?.username || "").trim();
+    const newPassword = String(req.body?.new_password || "");
+    if (!username || !newPassword) {
+      return res.status(400).json({ message: "username dan new_password wajib diisi." });
+    }
+
+    const customer = await Customer.findOne({
+      where: { target_vps_id: req.targetVps.id, username },
+    });
+    if (!customer) {
+      return res.status(404).json({ message: "Customer tidak ditemukan." });
+    }
+
+    await upsertCustomerCredential(req.targetVps, { username, password: newPassword });
+    res.json({ success: true });
   } catch (e) {
     next(e);
   }

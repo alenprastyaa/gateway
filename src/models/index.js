@@ -8,6 +8,7 @@ const PaymentOrder = require("./PaymentOrder")(sequelize, DataTypes);
 const AdminUser = require("./AdminUser")(sequelize, DataTypes);
 const TokenPackage = require("./TokenPackage")(sequelize, DataTypes);
 const TokenOrder = require("./TokenOrder")(sequelize, DataTypes);
+const Customer = require("./Customer")(sequelize, DataTypes);
 const ProductionPricing = require("./ProductionPricing")(sequelize, DataTypes);
 const ProductionOrder = require("./ProductionOrder")(sequelize, DataTypes);
 
@@ -34,6 +35,9 @@ TokenOrder.belongsTo(TokenPackage, { foreignKey: "token_package_id", as: "tokenP
 TargetVps.hasMany(TokenOrder, { foreignKey: "target_vps_id", as: "tokenOrders" });
 TokenOrder.belongsTo(TargetVps, { foreignKey: "target_vps_id", as: "targetVps" });
 
+TargetVps.hasMany(Customer, { foreignKey: "target_vps_id", as: "customers" });
+Customer.belongsTo(TargetVps, { foreignKey: "target_vps_id", as: "targetVps" });
+
 // ProductionPricing has no association on purpose — it is a single-row
 // settings table, not something any order joins to. Orders snapshot the price
 // they were charged (ProductionOrder.unit_price) so editing it later cannot
@@ -50,6 +54,7 @@ module.exports = {
   AdminUser,
   TokenPackage,
   TokenOrder,
+  Customer,
   ProductionPricing,
   ProductionOrder,
 };
