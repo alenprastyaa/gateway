@@ -17,14 +17,18 @@ const {
   runTokenOrderCrediting,
   runProductionOrderCrediting,
 } = require("../lib/provisioning");
+const { clientIp } = require("../lib/clientIp");
 
 const router = express.Router();
 
+// Keyed on X-Real-IP (unspoofable behind nginx) rather than the default req.ip,
+// which a forged X-Forwarded-For could rotate to sidestep the limit.
 const checkoutLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: clientIp,
 });
 
 function generateReferenceId() {
