@@ -1,5 +1,6 @@
 const express = require("express");
 const { PackagePlan, TokenPackage, ProductionPricing } = require("../models");
+const { loadLiveDiscounts, pickBestDiscountForPlan } = require("../lib/discounts");
 
 const router = express.Router();
 
@@ -9,7 +10,19 @@ router.get("/packages", async (req, res, next) => {
       where: { is_active: true },
       order: [["sort_order", "ASC"]],
     });
-    res.json({ data: plans });
+
+    // Attach the live registration discount (if any) to each plan so the
+    // checkout page can render the crossed-out price, the discounted price, a
+    // badge and a countdown. One query for all plans, resolved per plan.
+    const now = new Date();
+    const liveDiscounts = await loadLiveDiscounts(now);
+    const data = plans.map((plan) => {
+      const json = plan.toJSON();
+      json.discount = pickBestDiscountForPlan(plan, liveDiscounts, now);
+      return json;
+    });
+
+    res.json({ data });
   } catch (e) {
     next(e);
   }

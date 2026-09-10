@@ -11,6 +11,7 @@ const TokenOrder = require("./TokenOrder")(sequelize, DataTypes);
 const Customer = require("./Customer")(sequelize, DataTypes);
 const ProductionPricing = require("./ProductionPricing")(sequelize, DataTypes);
 const ProductionOrder = require("./ProductionOrder")(sequelize, DataTypes);
+const Discount = require("./Discount")(sequelize, DataTypes);
 
 // Explicit `as` aliases everywhere below: Sequelize's default alias guessing
 // singularizes "TargetVps" to "TargetVp" (it treats the trailing "s" as a
@@ -57,4 +58,5 @@ module.exports = {
   Customer,
   ProductionPricing,
   ProductionOrder,
+  Discount,
 };
