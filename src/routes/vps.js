@@ -9,6 +9,7 @@ const {
   ProductionOrder,
   PackagePlan,
   PackageMapping,
+  Discount,
 } = require("../models");
 const { createIpaymuRedirectPayment } = require("../lib/ipaymu");
 const { verifyPassword } = require("../lib/auth");
@@ -378,6 +379,148 @@ router.post("/update-password", verifyLoginLimiter, authenticateVps, async (req,
     }
 
     await upsertCustomerCredential(req.targetVps, { username, password: newPassword });
+    res.json({ success: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// --- Checkout discounts (2026-09-10) ---
+//
+// Managed from the app-builder superadmin panel (VPS B), not the gateway's own
+// admin CMS — the user asked for the setting to live there. authenticateVps is
+// the same trust boundary the token/production checkout routes use: a valid
+// X-Internal-Secret proves the caller is a registered backend VPS. Discounts
+// are GLOBAL gateway config (the public checkout page is single), so unlike the
+// checkout routes above these do NOT scope anything to req.targetVps.
+//
+// Price authority still lives here: the builder only ever states discount
+// intent (percent/fixed, dates, scope); the actual charged amount is always
+// recomputed on this side at checkout (src/routes/payments.js).
+
+// Validates and normalizes a discount payload from the admin panel. Returns
+// { error } for a bad request or { data } ready to write. Percent is capped at
+// 90 and fixed floored at 1 on purpose: a discount that brings a price to zero
+// cannot be charged through iPaymu (see the guard in payments.js) and is not
+// what a promo is for.
+function normalizeDiscountPayload(body) {
+  const label = String(body?.label || "").trim();
+  if (!label) return { error: "Nama diskon (label) wajib diisi." };
+
+  const type = body?.type === "fixed" ? "fixed" : "percent";
+  const value = Math.round(Number(body?.value));
+  if (!Number.isFinite(value)) {
+    return { error: "Nilai diskon wajib berupa angka." };
+  }
+  if (type === "percent" && (value < 1 || value > 90)) {
+    return { error: "Diskon persen harus antara 1 dan 90." };
+  }
+  if (type === "fixed" && value < 1) {
+    return { error: "Diskon nominal (rupiah) harus minimal 1." };
+  }
+
+  const appliesToAll = body?.applies_to_all !== false;
+  let packagePlanIds = null;
+  if (!appliesToAll) {
+    const ids = Array.from(
+      new Set(
+        (Array.isArray(body?.package_plan_ids) ? body.package_plan_ids : [])
+          .map((id) => Number.parseInt(id, 10))
+          .filter((id) => Number.isInteger(id) && id > 0)
+      )
+    );
+    if (ids.length === 0) {
+      return {
+        error: "Pilih minimal satu paket, atau setel diskon berlaku untuk semua paket.",
+      };
+    }
+    packagePlanIds = ids;
+  }
+
+  // Empty string / null both mean "unset" for the date bounds.
+  const parseDate = (raw) => {
+    if (raw === undefined || raw === null || String(raw).trim() === "") return null;
+    const d = new Date(raw);
+    return Number.isFinite(d.getTime()) ? d : undefined; // undefined = invalid
+  };
+  const startsAt = parseDate(body?.starts_at);
+  const endsAt = parseDate(body?.ends_at);
+  if (startsAt === undefined) return { error: "Tanggal mulai tidak valid." };
+  if (endsAt === undefined) return { error: "Tanggal berakhir tidak valid." };
+  if (startsAt && endsAt && endsAt <= startsAt) {
+    return { error: "Tanggal berakhir harus setelah tanggal mulai." };
+  }
+
+  const badgeText = String(body?.badge_text || "").trim() || null;
+
+  return {
+    data: {
+      label,
+      type,
+      value,
+      applies_to_all: appliesToAll,
+      package_plan_ids: packagePlanIds,
+      badge_text: badgeText,
+      starts_at: startsAt,
+      ends_at: endsAt,
+      is_active: body?.is_active !== false,
+    },
+  };
+}
+
+// The package list the admin picker needs to choose "specific packages".
+// Includes inactive plans so a discount can be prepared before a plan goes
+// live, but marks them so the UI can show it.
+router.get("/packages", authenticateVps, async (req, res, next) => {
+  try {
+    const plans = await PackagePlan.findAll({
+      order: [["sort_order", "ASC"]],
+      attributes: ["id", "name", "slug", "initial_price", "is_active"],
+    });
+    res.json({ data: plans });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get("/discounts", authenticateVps, async (req, res, next) => {
+  try {
+    const discounts = await Discount.findAll({ order: [["created_at", "DESC"]] });
+    res.json({ data: discounts });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post("/discounts", authenticateVps, async (req, res, next) => {
+  try {
+    const { error, data } = normalizeDiscountPayload(req.body);
+    if (error) return res.status(400).json({ message: error });
+    const created = await Discount.create(data);
+    res.status(201).json({ data: created });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.put("/discounts/:id", authenticateVps, async (req, res, next) => {
+  try {
+    const discount = await Discount.findByPk(req.params.id);
+    if (!discount) return res.status(404).json({ message: "Diskon tidak ditemukan." });
+    const { error, data } = normalizeDiscountPayload(req.body);
+    if (error) return res.status(400).json({ message: error });
+    await discount.update(data);
+    res.json({ data: discount });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.delete("/discounts/:id", authenticateVps, async (req, res, next) => {
+  try {
+    const discount = await Discount.findByPk(req.params.id);
+    if (!discount) return res.status(404).json({ message: "Diskon tidak ditemukan." });
+    await discount.destroy();
     res.json({ success: true });
   } catch (e) {
     next(e);
