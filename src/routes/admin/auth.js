@@ -3,16 +3,20 @@ const rateLimit = require("express-rate-limit");
 const { AdminUser } = require("../../models");
 const { verifyPassword, issueToken, hashPassword } = require("../../lib/auth");
 const authenticateAdmin = require("../../middleware/authenticateAdmin");
+const { clientIp } = require("../../lib/clientIp");
 
 const router = express.Router();
 
 // Only the CMS admin ever hits this — 10 tries per 15 min per IP is plenty
-// for a mistyped password, but stops a script from brute-forcing it.
+// for a mistyped password, but stops a script from brute-forcing it. Keyed on
+// the unspoofable X-Real-IP (see lib/clientIp) — the default req.ip key is
+// bypassable here by forging X-Forwarded-For, which would defeat this limit.
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: clientIp,
   message: { message: "Terlalu banyak percobaan login. Coba lagi beberapa menit lagi." },
 });
 

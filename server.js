@@ -2,6 +2,9 @@ const env = require("./src/config/env");
 const express = require("express");
 const path = require("path");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
+const { clientIp } = require("./src/lib/clientIp");
 const { sequelize, AdminUser } = require("./src/models");
 const { hashPassword } = require("./src/lib/auth");
 const publicRoutes = require("./src/routes/public");
@@ -23,6 +26,42 @@ const app = express();
 // express-rate-limit (used on the checkout endpoint) throws
 // ERR_ERL_UNEXPECTED_X_FORWARDED_FOR on every request.
 app.set("trust proxy", 1);
+
+// Security headers (2026-09-10). Applied to every response, including the
+// static checkout page and admin CMS.
+//
+// Two options are set deliberately, both to avoid affecting anything beyond
+// this gateway:
+//   - contentSecurityPolicy is OFF. The checkout page pulls Tailwind/fonts from
+//     CDNs and the admin CMS runs inline scripts; a blind default CSP would
+//     break the live page. A tuned per-page CSP is a separate, careful task.
+//   - HSTS is scoped to the exact host (includeSubDomains: false). This VPS
+//     also serves OTHER apps on sibling *.idschoolsystem.com subdomains; the
+//     helmet default (includeSubDomains: true) would force HTTPS on all of
+//     them and could break an app served over plain HTTP. This must stay false.
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    hsts: { maxAge: 15552000, includeSubDomains: false },
+  })
+);
+
+// Coarse global limiter for the API surface (2026-09-10) — a backstop against
+// scraping/DoS on top of the tighter per-route limiters (login, checkout).
+// Generous on purpose (an active admin session or post-payment status polling
+// makes many calls); the sensitive endpoints keep their own strict limits.
+// Keyed on the unspoofable X-Real-IP, same as the per-route limiters. Static
+// assets are not under /api, so page loads are unaffected.
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 600,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: clientIp,
+  message: { message: "Terlalu banyak permintaan. Coba lagi beberapa menit lagi." },
+});
 
 // The landing page and admin CMS are both served from this same origin, so
 // they never need cross-origin access — this whitelist only matters for
@@ -50,6 +89,8 @@ app.use(express.json());
 // the callback format selected in the merchant dashboard.
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, "public")));
+
+app.use("/api", apiLimiter);
 
 app.use("/api/public", publicRoutes);
 app.use("/api/payments", paymentRoutes);

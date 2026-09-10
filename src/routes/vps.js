@@ -15,14 +15,19 @@ const { createIpaymuRedirectPayment } = require("../lib/ipaymu");
 const { verifyPassword } = require("../lib/auth");
 const { upsertCustomerCredential } = require("../lib/provisioning");
 const authenticateVps = require("../middleware/authenticateVps");
+const { clientIp } = require("../lib/clientIp");
 
 const router = express.Router();
 
+// Keyed on X-Real-IP (unspoofable behind nginx) rather than the default req.ip.
+// These are server-to-server calls from a backend VPS, whose real IP nginx
+// stamps into X-Real-IP; the default key would read a forgeable X-Forwarded-For.
 const checkoutLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: clientIp,
 });
 
 // Tighter than checkoutLimiter on purpose — this endpoint exists to answer
@@ -36,6 +41,7 @@ const verifyLoginLimiter = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: clientIp,
 });
 
 function generateTokenReferenceId() {
