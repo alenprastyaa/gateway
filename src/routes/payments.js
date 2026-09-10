@@ -11,6 +11,7 @@ const {
 } = require("../models");
 const { createIpaymuRedirectPayment, verifyIpaymuCallbackSignature } = require("../lib/ipaymu");
 const { pickActiveTarget } = require("../lib/quota");
+const { resolvePlanDiscount } = require("../lib/discounts");
 const {
   runOrderProvisioning,
   runTokenOrderCrediting,
@@ -84,7 +85,26 @@ router.post("/ipaymu/checkout", checkoutLimiter, async (req, res, next) => {
     }
 
     const referenceId = generateReferenceId();
-    const amount = Number(plan.initial_price) || 0;
+    // Registration price, minus any live discount — recomputed here from the
+    // database, never trusted from the client. The same resolvePlanDiscount
+    // backs the /packages display, so the amount charged matches the amount
+    // shown. Only initial_price is discounted (renewal stays full price).
+    const discount = await resolvePlanDiscount(plan);
+    const amount = discount
+      ? discount.discounted_price
+      : Number(plan.initial_price) || 0;
+
+    // Guard the one case that would silently overcharge: iPaymu's payload
+    // reads `order.amount || plan.initial_price`, so an amount of exactly 0
+    // (a discount that cancels the whole price) would fall back to the FULL
+    // price. A free registration is not a payment anyway — refuse it clearly
+    // instead of charging the buyer the un-discounted amount. Sane discounts
+    // (validated in the admin CRUD) never reach here.
+    if (Number(plan.initial_price) > 0 && amount <= 0) {
+      return res.status(400).json({
+        message: "Diskon membuat harga paket ini menjadi nol. Hubungi admin.",
+      });
+    }
 
     const ipaymuResult = await createIpaymuRedirectPayment(req, {
       plan,
