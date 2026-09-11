@@ -514,6 +514,26 @@
       const registrationStatus = document.getElementById("registration-status");
       const checkoutGlobalStatus = document.getElementById("checkout-global-status");
 
+      // Persistent device id sent as X-Device-Id, so the server can rate-limit
+      // per device (complementary to per-IP) — see the checkout limiter. Random,
+      // stored in localStorage, not tied to any identity. Wrapped in try/catch
+      // so checkout still works where localStorage is blocked.
+      function getDeviceId() {
+        try {
+          let id = localStorage.getItem("gw_device_id");
+          if (!id || !/^[A-Za-z0-9_-]{8,64}$/.test(id)) {
+            id =
+              window.crypto && crypto.randomUUID
+                ? crypto.randomUUID().replace(/-/g, "")
+                : Math.random().toString(36).slice(2) + Date.now().toString(36);
+            localStorage.setItem("gw_device_id", id);
+          }
+          return id;
+        } catch (e) {
+          return "";
+        }
+      }
+
       function formatCurrency(value) {
         return new Intl.NumberFormat("id-ID", {
           style: "currency",
@@ -809,7 +829,7 @@
         try {
           const res = await fetch("/api/payments/ipaymu/checkout", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", "X-Device-Id": getDeviceId() },
             body: JSON.stringify({
               package_id: packageId,
               buyer_name: fullName,

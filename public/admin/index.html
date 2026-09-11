@@ -409,6 +409,24 @@ let token = localStorage.getItem("admin_token") || "";
 let packagesCache = [];
 let vpsCache = [];
 
+// Persistent device id sent as X-Device-Id so the server can rate-limit the
+// admin login per device (complementary to per-IP + the per-account lockout).
+function getDeviceId() {
+  try {
+    let id = localStorage.getItem("gw_device_id");
+    if (!id || !/^[A-Za-z0-9_-]{8,64}$/.test(id)) {
+      id =
+        window.crypto && crypto.randomUUID
+          ? crypto.randomUUID().replace(/-/g, "")
+          : Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem("gw_device_id", id);
+    }
+    return id;
+  } catch (e) {
+    return "";
+  }
+}
+
 const PAGE_TITLES = {
   "section-ringkasan": "Ringkasan",
   "section-server": "Server",
@@ -421,7 +439,11 @@ const PAGE_TITLES = {
 };
 
 function authHeaders() {
-  return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+  return {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+    "X-Device-Id": getDeviceId(),
+  };
 }
 
 async function api(path, opts = {}) {
