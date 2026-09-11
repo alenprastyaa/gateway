@@ -311,6 +311,21 @@
             </p>
           </div>
 
+          <!-- Referral banner. Hidden until a code is confirmed by the server:
+               an unverified code must never be shown as if it were valid. -->
+          <div
+            id="referral-banner"
+            class="mt-8 hidden items-center gap-3 rounded-2xl border border-accent-teal/30 bg-accent-teal/10 px-5 py-4"
+          >
+            <svg class="h-5 w-5 shrink-0 text-accent-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            <p class="text-sm text-slate-200">
+              Anda diundang oleh <strong id="referral-name" class="text-accent-teal"></strong>.
+              Lanjutkan pendaftaran agar undangan ini tercatat.
+            </p>
+          </div>
+
           <div class="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
             <div class="overflow-hidden rounded-3xl border border-line bg-surface">
               <div class="flex items-center gap-2 border-b border-line bg-surface2 px-5 py-3 font-mono text-xs text-slate-500">
@@ -513,6 +528,89 @@
       const registrationButton = document.getElementById("registration-button");
       const registrationStatus = document.getElementById("registration-status");
       const checkoutGlobalStatus = document.getElementById("checkout-global-status");
+
+      // --- Referral capture (2026-09-11) ---
+      //
+      // The code lives in a cookie, not in memory, because a visitor typically
+      // opens the link, reads the page, and pays later — possibly after a
+      // reload or a trip to another tab. LAST CLICK WINS: opening a second
+      // referral link overwrites the first, which is the rule the product chose
+      // and matches what people expect from the link they actually acted on.
+      //
+      // Nothing here decides anything. The code is confirmed by the server
+      // before the banner appears, and re-validated again at payment time by
+      // the backend that owns the referral graph — this page just carries it.
+      const REFERRAL_COOKIE = "gw_ref";
+      let activeReferralCode = "";
+
+      function readReferralCookie() {
+        const match = document.cookie.match(/(?:^|;\s*)gw_ref=([^;]*)/);
+        return match ? decodeURIComponent(match[1]) : "";
+      }
+
+      function writeReferralCookie(code, days) {
+        const maxAge = Math.max(1, Number(days) || 30) * 24 * 60 * 60;
+        // SameSite=Lax so the cookie survives arriving from a social app or a
+        // QR scanner (a top-level GET), without being sent on cross-site POSTs.
+        document.cookie =
+          `${REFERRAL_COOKIE}=${encodeURIComponent(code)};path=/;max-age=${maxAge};samesite=lax` +
+          (location.protocol === "https:" ? ";secure" : "");
+      }
+
+      function normalizeReferralInput(raw) {
+        const value = String(raw || "").trim().toUpperCase();
+        if (!value || value.length < 6 || value.length > 16) return "";
+        return /^[A-Z0-9]+$/.test(value) ? value : "";
+      }
+
+      async function initReferral() {
+        const fromUrl = normalizeReferralInput(
+          new URLSearchParams(location.search).get("ref")
+        );
+        const candidate = fromUrl || normalizeReferralInput(readReferralCookie());
+        if (!candidate) return;
+
+        let info = null;
+        try {
+          const res = await fetch(
+            `/api/public/referral/resolve?code=${encodeURIComponent(candidate)}`,
+            { headers: { "X-Device-Id": getDeviceId() } }
+          );
+          info = await res.json().catch(() => null);
+        } catch (e) {
+          info = null;
+        }
+
+        if (!info || !info.valid) {
+          // A code that does not resolve is dropped rather than carried
+          // silently — otherwise a typo would quietly cost the referrer their
+          // commission at payment time, with nothing on screen to explain it.
+          if (fromUrl) {
+            document.cookie = `${REFERRAL_COOKIE}=;path=/;max-age=0;samesite=lax`;
+          }
+          return;
+        }
+
+        activeReferralCode = info.code;
+        if (fromUrl) {
+          writeReferralCookie(info.code, info.attribution_window_days);
+          // Count the visit only when it actually came from a link, not on
+          // every later page view that merely reads the cookie.
+          fetch("/api/public/referral/click", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Device-Id": getDeviceId() },
+            body: JSON.stringify({ code: info.code, source: "checkout" }),
+          }).catch(() => {});
+        }
+
+        const banner = document.getElementById("referral-banner");
+        const nameEl = document.getElementById("referral-name");
+        if (banner && nameEl) {
+          nameEl.textContent = info.affiliate_name || "teman Anda";
+          banner.classList.remove("hidden");
+          banner.classList.add("flex");
+        }
+      }
 
       // Persistent device id sent as X-Device-Id, so the server can rate-limit
       // per device (complementary to per-IP) — see the checkout limiter. Random,
@@ -835,6 +933,9 @@
               buyer_name: fullName,
               buyer_email: email,
               buyer_phone: buyerPhone,
+              // Only ever a code the server already confirmed (see
+              // initReferral). The backend re-validates it regardless.
+              referral_code: activeReferralCode || undefined,
             }),
           });
           const data = await res.json().catch(() => ({}));
@@ -872,6 +973,9 @@
 
       loadPackages();
       handlePaymentQueryState();
+      // Fire-and-forget: a referral that cannot be confirmed simply leaves the
+      // banner hidden, and must never delay the pricing or checkout flow.
+      initReferral();
     </script>
   </body>
 </html>

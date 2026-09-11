@@ -62,6 +62,19 @@ router.post("/ipaymu/checkout", checkoutLimiter, checkoutDeviceLimiter, async (r
       phone: String(req.body?.buyer_phone || "").trim(),
     };
 
+    /* Affiliate referral code (2026-09-11). Shape-checked only — whether it is
+     * real, whose it is, and whether it earns anything is decided by the
+     * backend VPS at provisioning time. Storing an unknown code costs nothing
+     * and keeps the audit trail honest about what the buyer actually arrived
+     * with; silently dropping it here would make a lost commission impossible
+     * to explain afterwards. */
+    const referralCode = (() => {
+      const raw = String(req.body?.referral_code || "").trim().toUpperCase();
+      if (!raw) return null;
+      if (raw.length < 6 || raw.length > 16) return null;
+      return /^[A-Z0-9]+$/.test(raw) ? raw : null;
+    })();
+
     if (!packageId) {
       return res.status(400).json({ message: "Paket wajib dipilih." });
     }
@@ -140,6 +153,7 @@ router.post("/ipaymu/checkout", checkoutLimiter, checkoutDeviceLimiter, async (r
       amount,
       status: "pending",
       order_type: orderType,
+      referral_code: referralCode,
       ipaymu_session_id: ipaymuResult?.Data?.SessionID || null,
       ipaymu_payment_url: ipaymuResult?.Data?.Url || null,
       ipaymu_response: ipaymuResult,
