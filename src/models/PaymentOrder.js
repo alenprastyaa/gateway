@@ -21,6 +21,12 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: "new_registration",
       },
+      // Affiliate referral code the buyer arrived with (2026-09-11). Captured
+      // at checkout and kept here because payment confirmation arrives later,
+      // out of band, when the browser cookie that held it is gone. The backend
+      // VPS owns the referral graph and decides whether this earns anything;
+      // this column is a carrier, never a source of truth.
+      referral_code: { type: DataTypes.STRING(32), allowNull: true },
       ipaymu_session_id: { type: DataTypes.STRING, allowNull: true },
       ipaymu_payment_url: { type: DataTypes.STRING, allowNull: true },
       ipaymu_response: { type: DataTypes.JSON, allowNull: true },

@@ -46,7 +46,10 @@ function endpointUrl(targetVps, path) {
   return `${String(targetVps.base_url).replace(/\/+$/, "")}/iniq${path}`;
 }
 
-async function provisionPaidUser(targetVps, { referenceId, buyer, remotePackageId, amount, landingOrderId }) {
+async function provisionPaidUser(
+  targetVps,
+  { referenceId, buyer, remotePackageId, amount, landingOrderId, referralCode }
+) {
   const secret = decryptSecret(targetVps.internal_secret_encrypted);
 
   const response = await axios.post(
@@ -57,6 +60,12 @@ async function provisionPaidUser(targetVps, { referenceId, buyer, remotePackageI
       remote_package_id: remotePackageId,
       amount,
       landing_order_id: landingOrderId,
+      // Affiliate (2026-09-11). The code the buyer arrived with, carried from
+      // the checkout page through the order row to the backend VPS, which owns
+      // the referral graph and decides whether it earns anything. This side
+      // never validates or prices it — it only forwards what was captured,
+      // alongside `amount`, which stays the gateway's authoritative figure.
+      referral_code: referralCode || null,
     },
     {
       headers: { "X-Internal-Secret": secret },
@@ -285,6 +294,12 @@ async function runOrderProvisioning(order) {
           remotePackageId: order.remote_package_id,
           amount: order.amount,
           landingOrderId: order.id,
+          // Must be forwarded on THIS path too: an order that looked like a
+          // renewal but found no account is reclassified as a registration
+          // right above, and that is exactly the case a referral belongs to.
+          // Omitting it here would silently drop the commission for every
+          // buyer who reached us through this fallback.
+          referralCode: order.referral_code,
         });
       }
     } else {
@@ -294,6 +309,7 @@ async function runOrderProvisioning(order) {
         remotePackageId: order.remote_package_id,
         amount: order.amount,
         landingOrderId: order.id,
+        referralCode: order.referral_code,
       });
     }
 
