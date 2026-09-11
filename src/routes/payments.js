@@ -17,18 +17,33 @@ const {
   runTokenOrderCrediting,
   runProductionOrderCrediting,
 } = require("../lib/provisioning");
-const { clientIp } = require("../lib/clientIp");
+const { clientIp, deviceId } = require("../lib/clientIp");
 
 const router = express.Router();
 
 // Keyed on X-Real-IP (unspoofable behind nginx) rather than the default req.ip,
-// which a forged X-Forwarded-For could rotate to sidestep the limit.
+// which a forged X-Forwarded-For could rotate to sidestep the limit. This is
+// the hard per-IP ceiling for the public checkout endpoint.
 const checkoutLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: clientIp,
+});
+
+// Complementary per-device ceiling (2026-09-11): the checkout page mints a
+// persistent device id and sends it as X-Device-Id. This catches one browser
+// spinning up orders from many proxy IPs — which the per-IP limiter cannot see
+// — and gives each device behind a shared NAT its own bucket. Client-set, so a
+// complementary layer on top of the per-IP ceiling, not a replacement.
+const checkoutDeviceLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: deviceId,
+  message: { message: "Terlalu banyak permintaan checkout dari perangkat ini. Coba lagi beberapa menit lagi." },
 });
 
 function generateReferenceId() {
@@ -38,7 +53,7 @@ function generateReferenceId() {
     .toUpperCase()}`;
 }
 
-router.post("/ipaymu/checkout", checkoutLimiter, async (req, res, next) => {
+router.post("/ipaymu/checkout", checkoutLimiter, checkoutDeviceLimiter, async (req, res, next) => {
   try {
     const packageId = Number.parseInt(req.body?.package_id, 10);
     const buyer = {
