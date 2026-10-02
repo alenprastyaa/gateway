@@ -90,6 +90,22 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, "public")));
 
+// Short referral link (2026-09-11): /r/<CODE> -> the checkout page with ?ref=.
+//
+// It exists for QR codes, where every character is a denser, harder-to-scan
+// image — "/r/ABC12345" encodes far more reliably than the full query-string
+// form, especially printed small or photographed at an angle.
+//
+// Redirect, not a rewrite, so the visitor's address bar shows the canonical
+// checkout URL and a reload cannot re-trigger a click count. The code is
+// shape-checked here only; validity is the backend's call.
+app.get("/r/:code", (req, res) => {
+  const raw = String(req.params.code || "").trim().toUpperCase();
+  const safe = /^[A-Z0-9]{6,16}$/.test(raw) ? raw : "";
+  if (!safe) return res.redirect(302, "/");
+  res.redirect(302, `/?ref=${encodeURIComponent(safe)}#checkout`);
+});
+
 app.use("/api", apiLimiter);
 
 app.use("/api/public", publicRoutes);
