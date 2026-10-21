@@ -17,6 +17,7 @@ const adminOrdersRoutes = require("./src/routes/admin/orders");
 const adminTokenPackagesRoutes = require("./src/routes/admin/tokenPackages");
 const adminTokenOrdersRoutes = require("./src/routes/admin/tokenOrders");
 const adminProductionBillingRoutes = require("./src/routes/admin/productionBilling");
+const adminSlotBillingRoutes = require("./src/routes/admin/slotBilling");
 const errorHandler = require("./src/middleware/errorHandler");
 const { reconcileUserCounts } = require("./src/jobs/reconcileUserCounts");
 const { runPendingMigrations } = require("./src/lib/migrate");
@@ -118,6 +119,7 @@ app.use("/api/admin/orders", adminOrdersRoutes);
 app.use("/api/admin/token-packages", adminTokenPackagesRoutes);
 app.use("/api/admin/token-orders", adminTokenOrdersRoutes);
 app.use("/api/admin/production", adminProductionBillingRoutes);
+app.use("/api/admin/slots", adminSlotBillingRoutes);
 
 app.use(errorHandler);
 

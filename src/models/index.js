@@ -12,6 +12,8 @@ const Customer = require("./Customer")(sequelize, DataTypes);
 const ProductionPricing = require("./ProductionPricing")(sequelize, DataTypes);
 const ProductionOrder = require("./ProductionOrder")(sequelize, DataTypes);
 const Discount = require("./Discount")(sequelize, DataTypes);
+const SlotPricing = require("./SlotPricing")(sequelize, DataTypes);
+const SlotOrder = require("./SlotOrder")(sequelize, DataTypes);
 
 // Explicit `as` aliases everywhere below: Sequelize's default alias guessing
 // singularizes "TargetVps" to "TargetVp" (it treats the trailing "s" as a
@@ -46,6 +48,9 @@ Customer.belongsTo(TargetVps, { foreignKey: "target_vps_id", as: "targetVps" });
 TargetVps.hasMany(ProductionOrder, { foreignKey: "target_vps_id", as: "productionOrders" });
 ProductionOrder.belongsTo(TargetVps, { foreignKey: "target_vps_id", as: "targetVps" });
 
+TargetVps.hasMany(SlotOrder, { foreignKey: "target_vps_id", as: "slotOrders" });
+SlotOrder.belongsTo(TargetVps, { foreignKey: "target_vps_id", as: "targetVps" });
+
 module.exports = {
   sequelize,
   PackagePlan,
@@ -59,4 +64,6 @@ module.exports = {
   ProductionPricing,
   ProductionOrder,
   Discount,
+  SlotPricing,
+  SlotOrder,
 };

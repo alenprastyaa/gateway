@@ -8,6 +8,7 @@ const {
   PaymentOrder,
   TokenOrder,
   ProductionOrder,
+  SlotOrder,
 } = require("../models");
 const { createIpaymuRedirectPayment, verifyIpaymuCallbackSignature } = require("../lib/ipaymu");
 const { pickActiveTarget } = require("../lib/quota");
@@ -16,6 +17,7 @@ const {
   runOrderProvisioning,
   runTokenOrderCrediting,
   runProductionOrderCrediting,
+  runSlotOrderGranting,
 } = require("../lib/provisioning");
 const { clientIp, deviceId } = require("../lib/clientIp");
 
@@ -190,6 +192,23 @@ router.get("/status/:referenceId", async (req, res, next) => {
       });
     }
 
+    if (referenceId.startsWith("SLT-")) {
+      const order = await SlotOrder.findOne({ where: { reference_id: referenceId } });
+      if (!order) {
+        return res.status(404).json({ message: "Order pembayaran tidak ditemukan." });
+      }
+      return res.json({
+        reference_id: order.reference_id,
+        status: order.status,
+        provisioning_status: order.grant_status,
+        provisioning_last_error: order.grant_last_error || null,
+        project_quantity: order.project_quantity,
+        production_quantity: order.production_quantity,
+        amount: order.amount,
+        updatedAt: order.updatedAt,
+      });
+    }
+
     if (referenceId.startsWith("TOK-")) {
       const order = await TokenOrder.findOne({ where: { reference_id: referenceId } });
       if (!order) {
@@ -257,10 +276,15 @@ router.post("/ipaymu/notify", async (req, res, next) => {
     const isTokenOrder = referenceId.startsWith("TOK-");
     // PRJ- = production-app year renewal (2026-09-05), same routing trick.
     const isProductionOrder = referenceId.startsWith("PRJ-");
+    // SLT- = extra project / production slots (2026-10-21). Not a prefix of TOK-
+    // or PRJ-, so the startsWith checks cannot match the wrong table.
+    const isSlotOrder = referenceId.startsWith("SLT-");
     const OrderModel = isTokenOrder
       ? TokenOrder
       : isProductionOrder
       ? ProductionOrder
+      : isSlotOrder
+      ? SlotOrder
       : PaymentOrder;
 
     const order = await OrderModel.findOne({ where: { reference_id: referenceId } });
@@ -306,6 +330,8 @@ router.post("/ipaymu/notify", async (req, res, next) => {
             await runTokenOrderCrediting(order);
           } else if (isProductionOrder) {
             await runProductionOrderCrediting(order);
+          } else if (isSlotOrder) {
+            await runSlotOrderGranting(order);
           } else {
             await runOrderProvisioning(order);
           }
