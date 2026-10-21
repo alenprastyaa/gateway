@@ -7,6 +7,8 @@ const {
   Customer,
   ProductionPricing,
   ProductionOrder,
+  SlotPricing,
+  SlotOrder,
   PackagePlan,
   PackageMapping,
   Discount,
@@ -61,6 +63,33 @@ function generateProductionReferenceId() {
     .randomBytes(3)
     .toString("hex")
     .toUpperCase()}`;
+}
+
+// SLT- marks an extra-slot purchase (2026-10-21). Never a prefix of TOK- or
+// PRJ-, for the reason given above.
+function generateSlotReferenceId() {
+  return `SLT-${Date.now().toString(36).toUpperCase()}-${crypto
+    .randomBytes(3)
+    .toString("hex")
+    .toUpperCase()}`;
+}
+
+// One purchase may add at most this many of each kind. A sanity ceiling, not a
+// business rule: it keeps a typo (or a hostile caller) from building an order
+// whose total no customer meant to pay.
+const MAX_SLOTS_PER_ORDER = 20;
+
+// What the two slot kinds cost right now. A price of 0 means the kind is not
+// for sale (the migration seeds both at 0), so the answer is explicit about it
+// rather than letting a free checkout through.
+async function readSlotPrices() {
+  const row = await SlotPricing.findByPk(1);
+  const project = Number(row?.project_slot_price);
+  const production = Number(row?.production_slot_price);
+  return {
+    project_slot_price: Number.isFinite(project) && project > 0 ? project : 0,
+    production_slot_price: Number.isFinite(production) && production > 0 ? production : 0,
+  };
 }
 
 // The single fallback price. Always row 1 — see ProductionPricing's header
@@ -146,6 +175,110 @@ router.get("/production-pricing", authenticateVps, async (req, res, next) => {
     const remotePackageId = Number.parseInt(req.query?.package_id, 10) || null;
     const price = await resolveProductionUnitPrice(req.targetVps, remotePackageId);
     res.json({ yearly_price: price });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// What an extra project slot and an extra production slot cost (2026-10-21).
+// Read-only, so no checkoutLimiter, like /production-pricing above.
+router.get("/slot-pricing", authenticateVps, async (req, res, next) => {
+  try {
+    res.json({ ...(await readSlotPrices()), max_per_order: MAX_SLOTS_PER_ORDER });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Extra slots (2026-10-21). Server-to-server, same trust boundary as
+// /production-checkout. The caller states WHO and HOW MANY, never a price: the
+// amount is computed here from slot_pricing, because the iPaymu account is
+// shared and a VPS that could name its own price could charge anything.
+router.post("/slot-checkout", checkoutLimiter, authenticateVps, async (req, res, next) => {
+  try {
+    const remoteUserId = Number.parseInt(req.body?.user_id, 10);
+    const buyerEmail = String(req.body?.buyer_email || "").trim() || null;
+    const projectQuantity = Number(req.body?.project_quantity ?? 0);
+    const productionQuantity = Number(req.body?.production_quantity ?? 0);
+
+    const validQuantity = (n) => Number.isInteger(n) && n >= 0 && n <= MAX_SLOTS_PER_ORDER;
+    if (!remoteUserId || !validQuantity(projectQuantity) || !validQuantity(productionQuantity)) {
+      return res.status(400).json({
+        message: `user_id wajib diisi dan jumlah slot harus bilangan 0 sampai ${MAX_SLOTS_PER_ORDER}.`,
+      });
+    }
+    if (projectQuantity + productionQuantity === 0) {
+      return res.status(400).json({ message: "Pilih minimal satu slot untuk dibeli." });
+    }
+
+    const prices = await readSlotPrices();
+    // A kind that is not for sale cannot be bought, however the request is built.
+    if (projectQuantity > 0 && prices.project_slot_price <= 0) {
+      return res.status(503).json({ message: "Slot project tambahan belum dijual." });
+    }
+    if (productionQuantity > 0 && prices.production_slot_price <= 0) {
+      return res.status(503).json({ message: "Slot produksi tambahan belum dijual." });
+    }
+
+    const amount =
+      projectQuantity * prices.project_slot_price +
+      productionQuantity * prices.production_slot_price;
+    if (!Number.isSafeInteger(amount) || amount <= 0 || amount > 100000000) {
+      return res.status(400).json({ message: "Total pembelian di luar batas yang diizinkan." });
+    }
+
+    const referenceId = generateSlotReferenceId();
+    const targetVps = req.targetVps;
+    const returnBase = String(targetVps.base_url || "").replace(/\/+$/, "");
+    const parts = [];
+    if (projectQuantity) parts.push(`${projectQuantity} slot project`);
+    if (productionQuantity) parts.push(`${productionQuantity} slot produksi`);
+
+    const ipaymuResult = await createIpaymuRedirectPayment(req, {
+      plan: {
+        name: `Upgrade: ${parts.join(" + ")}`,
+        initial_price: amount,
+        description: "Penambahan kuota project dan aplikasi produksi",
+      },
+      order: { reference_id: referenceId, amount },
+      // Same placeholder phone as the other VPS-side checkouts: iPaymu rejects an
+      // empty buyerPhone and reports it as an unauthorized signature.
+      buyer: {
+        name: `User #${remoteUserId}`,
+        email:
+          buyerEmail || `user${remoteUserId}@${returnBase.replace(/^https?:\/\//, "")}`,
+        phone: "081200000000",
+      },
+      overrideUrls: {
+        returnUrl: `${returnBase}/studio/upgrade?slot_payment=success&ref=${encodeURIComponent(referenceId)}`,
+        cancelUrl: `${returnBase}/studio/upgrade?slot_payment=cancel&ref=${encodeURIComponent(referenceId)}`,
+      },
+    });
+
+    const order = await SlotOrder.create({
+      reference_id: referenceId,
+      target_vps_id: targetVps.id,
+      remote_user_id: remoteUserId,
+      buyer_email: buyerEmail,
+      project_quantity: projectQuantity,
+      production_quantity: productionQuantity,
+      project_unit_price: prices.project_slot_price,
+      production_unit_price: prices.production_slot_price,
+      amount,
+      status: "pending",
+      ipaymu_session_id: ipaymuResult?.Data?.SessionID || null,
+      ipaymu_payment_url: ipaymuResult?.Data?.Url || null,
+      ipaymu_response: ipaymuResult,
+      callback_payloads: [],
+    });
+
+    res.status(201).json({
+      reference_id: order.reference_id,
+      payment_url: order.ipaymu_payment_url,
+      amount: order.amount,
+      project_quantity: order.project_quantity,
+      production_quantity: order.production_quantity,
+    });
   } catch (e) {
     next(e);
   }

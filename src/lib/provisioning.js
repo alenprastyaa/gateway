@@ -424,7 +424,95 @@ async function runProductionOrderCrediting(order) {
   }
 }
 
+async function grantSlots(targetVps, { referenceId, userId, projectQuantity, productionQuantity }) {
+  const secret = decryptSecret(targetVps.internal_secret_encrypted);
+
+  const response = await axios.post(
+    endpointUrl(targetVps, "/api/internal/grant-slots"),
+    {
+      reference_id: referenceId,
+      user_id: userId,
+      project_quantity: projectQuantity,
+      production_quantity: productionQuantity,
+    },
+    {
+      headers: { "X-Internal-Secret": secret },
+      timeout: 30000,
+      validateStatus: () => true,
+    }
+  );
+
+  if (response.status >= 200 && response.status < 300 && response.data?.success) {
+    return response.data;
+  }
+
+  throw new Error(
+    response.data?.message ||
+      `Penambahan slot gagal dengan status ${response.status} dari ${targetVps.name}.`
+  );
+}
+
+// Same shape as runProductionOrderCrediting, for extra-slot orders.
+//
+// Two independent gates stand between a retried webhook and a second grant:
+//   here          grant_status === "succeeded" short-circuits, so a retry after a
+//                   completed grant never calls the VPS again.
+//   backend VPS   records reference_id, so a call that DOES arrive twice (a retry
+//                   after a timeout, where this gate is deliberately open
+//                   because the first attempt is marked failed) still raises the
+//                   quota once.
+// The second is the guarantee, the first an optimisation: a 30s axios timeout
+// marks the order failed even when the VPS did apply the grant, which is
+// exactly the case where the backend must refuse to apply it again.
+async function runSlotOrderGranting(order) {
+  if (order.grant_status === "succeeded") {
+    return { alreadyDone: true, success: true };
+  }
+
+  if (!order.target_vps_id) {
+    order.grant_status = "failed";
+    order.grant_last_error = "Order ini tidak memiliki target VPS.";
+    await order.save();
+    return { alreadyDone: false, success: false };
+  }
+
+  order.grant_status = "pending";
+  order.grant_attempts += 1;
+  await order.save();
+
+  const targetVps = await TargetVps.findByPk(order.target_vps_id);
+  if (!targetVps) {
+    order.grant_status = "failed";
+    order.grant_last_error = "Target VPS pada order ini tidak ditemukan lagi.";
+    await order.save();
+    return { alreadyDone: false, success: false };
+  }
+
+  try {
+    await grantSlots(targetVps, {
+      referenceId: order.reference_id,
+      userId: order.remote_user_id,
+      projectQuantity: order.project_quantity,
+      productionQuantity: order.production_quantity,
+    });
+
+    order.grant_status = "succeeded";
+    order.granted_at = new Date();
+    order.grant_last_error = null;
+    await order.save();
+
+    return { alreadyDone: false, success: true };
+  } catch (e) {
+    order.grant_status = "failed";
+    order.grant_last_error = e.message || "Penambahan slot gagal.";
+    await order.save();
+    return { alreadyDone: false, success: false, error: e.message };
+  }
+}
+
 module.exports = {
+  grantSlots,
+  runSlotOrderGranting,
   provisionPaidUser,
   renewPaidUser,
   fetchRemoteUserCount,
