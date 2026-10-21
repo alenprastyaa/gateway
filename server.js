@@ -17,6 +17,7 @@ const adminOrdersRoutes = require("./src/routes/admin/orders");
 const adminTokenPackagesRoutes = require("./src/routes/admin/tokenPackages");
 const adminTokenOrdersRoutes = require("./src/routes/admin/tokenOrders");
 const adminProductionBillingRoutes = require("./src/routes/admin/productionBilling");
+const adminSlotBillingRoutes = require("./src/routes/admin/slotBilling");
 const errorHandler = require("./src/middleware/errorHandler");
 const { reconcileUserCounts } = require("./src/jobs/reconcileUserCounts");
 const { runPendingMigrations } = require("./src/lib/migrate");
@@ -72,10 +73,32 @@ const ALLOWED_ORIGINS = [
   "https://lms.idschoolsystem.com",
 ];
 const LOCALHOST_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+// Origins added per deployment (2026-10-21). The list above only names the
+// production domains, so the CMS on a staging gateway (reached by IP over the
+// VPN, e.g. http://10.8.0.1:1215) had every POST/PUT refused with "Not allowed
+// by CORS": browsers send Origin on those even to the page's own host.
+//   PUBLIC_BASE_URL      this gateway's own address, so its own pages always work
+//   CORS_ALLOWED_ORIGINS comma-separated extra origins, if one is ever needed
+// Reduced to scheme://host[:port] so a trailing slash or path in the env value
+// cannot make an exact match fail; anything unparsable is dropped.
+const ENV_ORIGINS = [process.env.PUBLIC_BASE_URL, ...String(process.env.CORS_ALLOWED_ORIGINS || "").split(",")]
+  .map((value) => {
+    try {
+      return new URL(String(value || "").trim()).origin;
+    } catch {
+      return null;
+    }
+  })
+  .filter(Boolean);
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || ALLOWED_ORIGINS.includes(origin) || LOCALHOST_ORIGIN_PATTERN.test(origin)) {
+      if (
+        !origin ||
+        ALLOWED_ORIGINS.includes(origin) ||
+        ENV_ORIGINS.includes(origin) ||
+        LOCALHOST_ORIGIN_PATTERN.test(origin)
+      ) {
         return callback(null, true);
       }
       callback(new Error("Not allowed by CORS"));
@@ -118,6 +141,7 @@ app.use("/api/admin/orders", adminOrdersRoutes);
 app.use("/api/admin/token-packages", adminTokenPackagesRoutes);
 app.use("/api/admin/token-orders", adminTokenOrdersRoutes);
 app.use("/api/admin/production", adminProductionBillingRoutes);
+app.use("/api/admin/slots", adminSlotBillingRoutes);
 
 app.use(errorHandler);
 
