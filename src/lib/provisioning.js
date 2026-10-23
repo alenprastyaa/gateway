@@ -88,7 +88,7 @@ async function provisionPaidUser(
   );
 }
 
-async function renewPaidUser(targetVps, { referenceId, buyer, remotePackageId }) {
+async function renewPaidUser(targetVps, { referenceId, buyer, remotePackageId, amount }) {
   const secret = decryptSecret(targetVps.internal_secret_encrypted);
 
   const response = await axios.post(
@@ -97,6 +97,9 @@ async function renewPaidUser(targetVps, { referenceId, buyer, remotePackageId })
       reference_id: referenceId,
       buyer: { email: buyer.email },
       remote_package_id: remotePackageId,
+      // Rupiah charged, so the app can work out affiliate commission / points for this purchase.
+      // Informational for the app (it never prices anything from it); older apps ignore it.
+      amount,
     },
     {
       headers: { "X-Internal-Secret": secret },
@@ -126,7 +129,7 @@ async function renewPaidUser(targetVps, { referenceId, buyer, remotePackageId })
   throw error;
 }
 
-async function creditTokens(targetVps, { referenceId, userId, tokenAmount }) {
+async function creditTokens(targetVps, { referenceId, userId, tokenAmount, amount }) {
   const secret = decryptSecret(targetVps.internal_secret_encrypted);
 
   const response = await axios.post(
@@ -135,6 +138,9 @@ async function creditTokens(targetVps, { referenceId, userId, tokenAmount }) {
       reference_id: referenceId,
       user_id: userId,
       token_amount: tokenAmount,
+      // Rupiah charged, so the app can work out affiliate commission / points for this purchase.
+      // Informational for the app (it never prices anything from it); older apps ignore it.
+      amount,
     },
     {
       headers: { "X-Internal-Secret": secret },
@@ -187,6 +193,7 @@ async function runTokenOrderCrediting(order) {
       referenceId: order.reference_id,
       userId: order.remote_user_id,
       tokenAmount: order.token_amount,
+      amount: order.amount,
     });
 
     order.credit_status = "succeeded";
@@ -276,6 +283,7 @@ async function runOrderProvisioning(order) {
           referenceId: order.reference_id,
           buyer: { email: order.buyer_email },
           remotePackageId: order.remote_package_id,
+          amount: order.amount,
         });
       } catch (renewError) {
         if (renewError.status !== 404) throw renewError;
@@ -335,7 +343,7 @@ async function runOrderProvisioning(order) {
   }
 }
 
-async function extendProduction(targetVps, { referenceId, userId, projectIds }) {
+async function extendProduction(targetVps, { referenceId, userId, projectIds, amount }) {
   const secret = decryptSecret(targetVps.internal_secret_encrypted);
 
   const response = await axios.post(
@@ -344,6 +352,9 @@ async function extendProduction(targetVps, { referenceId, userId, projectIds }) 
       reference_id: referenceId,
       user_id: userId,
       project_ids: projectIds,
+      // Rupiah charged, so the app can work out affiliate commission / points for this purchase.
+      // Informational for the app (it never prices anything from it); older apps ignore it.
+      amount,
     },
     {
       headers: { "X-Internal-Secret": secret },
@@ -408,6 +419,7 @@ async function runProductionOrderCrediting(order) {
       projectIds: Array.isArray(order.remote_project_ids)
         ? order.remote_project_ids
         : [],
+      amount: order.amount,
     });
 
     order.extend_status = "succeeded";
@@ -424,7 +436,7 @@ async function runProductionOrderCrediting(order) {
   }
 }
 
-async function grantSlots(targetVps, { referenceId, userId, projectQuantity, productionQuantity }) {
+async function grantSlots(targetVps, { referenceId, userId, projectQuantity, productionQuantity, amount }) {
   const secret = decryptSecret(targetVps.internal_secret_encrypted);
 
   const response = await axios.post(
@@ -434,6 +446,9 @@ async function grantSlots(targetVps, { referenceId, userId, projectQuantity, pro
       user_id: userId,
       project_quantity: projectQuantity,
       production_quantity: productionQuantity,
+      // Rupiah charged, so the app can work out affiliate commission / points for this purchase.
+      // Informational for the app (it never prices anything from it); older apps ignore it.
+      amount,
     },
     {
       headers: { "X-Internal-Secret": secret },
@@ -494,6 +509,7 @@ async function runSlotOrderGranting(order) {
       userId: order.remote_user_id,
       projectQuantity: order.project_quantity,
       productionQuantity: order.production_quantity,
+      amount: order.amount,
     });
 
     order.grant_status = "succeeded";
