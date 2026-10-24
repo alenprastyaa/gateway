@@ -14,8 +14,7 @@ const {
   Discount,
 } = require("../models");
 const { createIpaymuRedirectPayment } = require("../lib/ipaymu");
-const { verifyPassword } = require("../lib/auth");
-const { upsertCustomerCredential } = require("../lib/provisioning");
+const { verifyPassword, hashPassword } = require("../lib/auth");
 const authenticateVps = require("../middleware/authenticateVps");
 const { clientIp } = require("../lib/clientIp");
 
@@ -499,9 +498,8 @@ router.post("/verify-login", verifyLoginLimiter, authenticateVps, async (req, re
 // the caller's CURRENT password via /verify-login above — this endpoint
 // trusts that check happened and does not re-verify anything itself, same
 // trust boundary as token-checkout/verify-login (X-Internal-Secret via
-// authenticateVps). Reuses the same upsertCustomerCredential() that
-// provisioning already calls, so this is the one place that ever writes
-// Customer.password_hash, whether at account creation or afterwards.
+// authenticateVps). Writes Customer.password_hash directly so a failed save is reported to the caller
+// (provisioning's upsertCustomerCredential swallows errors on purpose for the purchase flow).
 router.post("/update-password", verifyLoginLimiter, authenticateVps, async (req, res, next) => {
   try {
     const username = String(req.body?.username || "").trim();
@@ -513,12 +511,31 @@ router.post("/update-password", verifyLoginLimiter, authenticateVps, async (req,
     const customer = await Customer.findOne({
       where: { target_vps_id: req.targetVps.id, username },
     });
-    if (!customer) {
+    // create_if_missing (2026-10-24): the superadmin reset on the backend VPS sends this because an
+    // account can exist there without a customers row here (the best-effort write in
+    // upsertCustomerCredential can fail silently at purchase time). Without it the reset failed with
+    // 404 and the account could never be recovered. The change-password route never sends it: it
+    // verifies the current password first, which a missing row cannot satisfy.
+    if (!customer && req.body?.create_if_missing !== true) {
       return res.status(404).json({ message: "Customer tidak ditemukan." });
     }
 
-    await upsertCustomerCredential(req.targetVps, { username, password: newPassword });
-    res.json({ success: true });
+    // Written directly (not through upsertCustomerCredential, which swallows errors on purpose for the
+    // purchase flow): the caller must hear about a failed save, or it would report a password that
+    // does not work as changed.
+    const password_hash = await hashPassword(newPassword);
+    if (customer) {
+      customer.password_hash = password_hash;
+      await customer.save();
+    } else {
+      await Customer.create({
+        target_vps_id: req.targetVps.id,
+        email: String(req.body?.email || "").trim(),
+        username,
+        password_hash,
+      });
+    }
+    res.json({ success: true, created: !customer });
   } catch (e) {
     next(e);
   }
